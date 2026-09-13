@@ -1,0 +1,72 @@
+name: Postman Grupo 04 - Onboarding y reporte PDF
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["grupo-04-registro-onboarding"]
+    paths:
+      - "postman/Grupo 04 - Onboarding KYC Básico.postman_collection.json"
+      - "scripts/newman_report.py"
+      - "scripts/requirements-newman-report.txt"
+      - ".github/workflows/postman-grupo04-onboarding.yml"
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ vars.GRUPO04_BASE_URL || 'https://aiquaa-sandbox-api.vercel.app' }}
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Newman y generador del informe
+        run: |
+          npm ci
+          python -m pip install -r scripts/requirements-newman-report.txt
+
+      - name: Ejecutar colección del Grupo 04
+        env:
+          API_KEY: ${{ secrets.GRUPO04_API_KEY }}
+        run: |
+          mkdir -p newman
+          npx newman run "postman/Grupo 04 - Onboarding KYC Básico.postman_collection.json" \
+            --folder "Validación con Base de Datos" \
+            --folder "Alta válida con validación BD" \
+            --env-var "baseUrl=${BASE_URL}" \
+            --env-var "apiKey=${API_KEY}" \
+            --delay-request 2200 \
+            --reporters cli,json \
+            --reporter-json-export newman/results.json
+
+      - name: Generar reporte PDF
+        if: always()
+        run: |
+          python scripts/newman_report.py \
+            --results newman/results.json \
+            --output newman/INFORME_POSTMAN_GRUPO04.pdf \
+            --repository "${{ github.server_url }}/${{ github.repository }}" \
+            --commit "${{ github.sha }}" \
+            --actor "${{ github.triggering_actor }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Publicar resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-grupo04-onboarding
+          path: newman/
+          retention-days: 7

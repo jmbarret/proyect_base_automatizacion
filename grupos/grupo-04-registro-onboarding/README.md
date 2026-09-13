@@ -59,3 +59,19 @@ Resultado de ejecución:
 Las evidencias de la tarea se encuentran en:
 
 `evidence/semana-03/`
+
+## Semana 4 - Automatización y rendimiento
+
+Se agregaron dos pipelines independientes:
+
+- `postman-grupo04-onboarding.yml`: ejecuta con Newman las dos carpetas de
+  validación dinámica de la Semana 3, exporta el resultado JSON, genera un
+  informe PDF con Python y publica ambos archivos como artefacto.
+- `jmeter-grupo04-performance.yml`: ejecuta el flujo de creación y consulta con
+  JMeter, genera el dashboard HTML y un informe PDF, evalúa los umbrales y
+  publica la evidencia.
+
+El plan `Grupo04_Onboarding.jmx` consume datos desde CSV, genera datos únicos,
+extrae el ID del usuario creado mediante JSONPath y lo correlaciona con la
+consulta GET. La API key se configura únicamente como secreto de GitHub con el
+nombre `GRUPO04_API_KEY`.
