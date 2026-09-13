@@ -4,14 +4,14 @@ on:
   push:
     branches: ["main", "grupo-03-pagos-servicios"]
     paths:
-      - "postman/Grupo 03 - Pago de Servicios.postman_collection.json"
-      - "postman/Grupo 03 - Pago de Servicios.postman_environment.json"
+      - "postman/Grupo 03 - Pago de Servicios_collection.json"
+      - "postman/Grupo 03 - Pago de Servicios_environment.json"
       - ".github/workflows/postman-grupo03-regression.yml"
   pull_request:
     branches: ["main", "grupo-03-pagos-servicios"]
     paths:
-      - "postman/Grupo 03 - Pago de Servicios.postman_collection.json"
-      - "postman/Grupo 03 - Pago de Servicios.postman_environment.json"
+      - "postman/Grupo 03 - Pago de Servicios_collection.json"
+      - "postman/Grupo 03 - Pago de Servicios_environment.json"
       - ".github/workflows/postman-grupo03-regression.yml"
   workflow_dispatch:
 
@@ -44,8 +44,8 @@ jobs:
       # por --folder si se necesita feedback rapido por integrante.
       - name: Ejecutar regresión Postman (Newman) - Grupo 03 Unificada
         run: >
-          npx newman run "postman/Grupo 03 - Pago de Servicios.postman_collection.json"
-          --environment "postman/Grupo 03 - Pago de Servicios.postman_environment.json"
+          npx newman run "postman/Grupo 03 - Pago de Servicios_collection.json"
+          --environment "postman/Grupo 03 - Pago de Servicios_environment.json"
           --env-var "baseUrl=${{ vars.GRUPO03_BASE_URL }}"
           --env-var "apiKey=${{ secrets.GRUPO03_API_KEY }}"
           --env-var "UsuarioID=${{ vars.GRUPO03_USUARIO_ID }}"
