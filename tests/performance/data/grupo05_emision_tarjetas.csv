@@ -1,0 +1,13 @@
+usuarioId,tipo,marca
+1,credito,visa
+2,debito,mastercard
+3,credito,mastercard
+4,debito,visa
+5,credito,visa
+6,debito,mastercard
+7,credito,visa
+8,debito,mastercard
+0,credito,visa
+999999,credito,visa
+9,invalido,visa
+10,credito,invalida
