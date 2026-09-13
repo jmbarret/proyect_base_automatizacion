@@ -39,9 +39,9 @@ jobs:
 
       - name: Ejecutar regresión Postman (Newman) - Grupo 05
         run: >
-          npx newman run postman/grupo-07-carrito-ecommerce.postman_collection.json
-          --env-var "baseUrl=${{ vars.GRUPO07_BASE_URL }}"
-          --env-var "apiKey=${{ secrets.GRUPO07_API_KEY }}"
+          npx newman run postman/grupo-05-carrito-ecommerce.postman_collection.json
+          --env-var "baseUrl=${{ vars.GRUPO05_BASE_URL }}"
+          --env-var "apiKey=${{ secrets.GRUPO05_API_KEY }}"
           --delay-request 800
           --reporters cli,json
           --reporter-json-export newman/results.json
