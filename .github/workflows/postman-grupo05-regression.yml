@@ -37,7 +37,7 @@ jobs:
       - name: Instalar dependencias Python (reportlab, Pillow)
         run: pip install -r skills/postman-newman-skill/reporter/requirements.txt
 
-      - name: Ejecutar regresión Postman (Newman) - Grupo 07
+      - name: Ejecutar regresión Postman (Newman) - Grupo 05
         run: >
           npx newman run postman/grupo-07-carrito-ecommerce.postman_collection.json
           --env-var "baseUrl=${{ vars.GRUPO07_BASE_URL }}"
