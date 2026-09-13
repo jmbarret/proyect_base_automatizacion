@@ -2,13 +2,13 @@ name: Postman Regression - Grupo 03 Pagos de Servicios (con reporte PDF en Pytho
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "grupo-03-pagos-servicios"]
     paths:
       - "postman/Grupo 03 - Pago de Servicios.postman_collection.json"
       - "postman/Grupo 03 - Pago de Servicios.postman_environment.json"
       - ".github/workflows/postman-grupo03-regression.yml"
   pull_request:
-    branches: ["main"]
+    branches: ["main", "grupo-03-pagos-servicios"]
     paths:
       - "postman/Grupo 03 - Pago de Servicios.postman_collection.json"
       - "postman/Grupo 03 - Pago de Servicios.postman_environment.json"
