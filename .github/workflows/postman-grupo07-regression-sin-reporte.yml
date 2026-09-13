@@ -1,0 +1,37 @@
+name: Postman Regression - Grupo 07 Carrito (sin reporte)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  newman-regression:
+    name: Newman sin reporte PDF
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias Node
+        run: npm install
+
+      - name: Ejecutar regresión Postman (Newman) - Grupo 07
+        run: >
+          npx newman run postman/grupo-07-carrito-ecommerce.postman_collection.json
+          --env-var "baseUrl=${{ vars.GRUPO07_BASE_URL }}"
+          --env-var "apiKey=${{ secrets.GRUPO07_API_KEY }}"
+          --delay-request 800
+          --reporters cli,junit
+          --reporter-junit-export newman/results.xml
+
+      - name: Subir resultados (JUnit)
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: newman-resultados-grupo07-sin-reporte
+          path: newman/results.xml
+          retention-days: 7

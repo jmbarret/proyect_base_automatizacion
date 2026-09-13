@@ -1,0 +1,16 @@
+name: bdd-skill-ci
+on:
+  push:
+    paths: ['bdd-skill/**']
+  pull_request:
+    paths: ['bdd-skill/**']
+jobs:
+  lint-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar que existan los archivos clave
+        run: |
+          test -f bdd-skill/skills/bdd/SKILL.md
+          test -f bdd-skill/examples/F_GRUPO_01_AUTENTICACION.feature
+          test -f bdd-skill/reporter/bdd_report.py

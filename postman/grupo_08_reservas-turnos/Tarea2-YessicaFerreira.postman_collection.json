@@ -1,0 +1,783 @@
+{
+  "info": {
+    "_postman_id": "cfc0ec2d-45d6-49b7-aecd-8ec20f1562ff",
+    "name": "Tarea2-YessicaFerreira",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "47241162",
+    "_collection_link": "https://go.postman.co/collection/47241162-cfc0ec2d-45d6-49b7-aecd-8ec20f1562ff?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Grupo 8 - Reservas / Turnos",
+      "item": [
+        {
+          "name": "CP001 - Paciente - Crear Reserva",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 19,\n  \"servicio\": \"Corte de Cabello\",\n  \"fechaHora\": \"05-09-2026\",\n  \"notas\": \"Yessica PruebaReserva2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP001 - Paciente - Reserva creada - PENDIENTE",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/23",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "23"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP001 - Paciente - Reserva PENDIENTE a Confirmada",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/1/confirmar",
+              "protocol": "https",
+              "host": [
+                "aiquaa-sandbox-api",
+                "vercel",
+                "app"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1",
+                "confirmar"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP001 - Paciente - APLICAR UPDATE para cambiar estado PENDIETNE A CONFIRMADA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE reservas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"confirmada\",\n    25\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP001 - Paciente - Reserva creada - CONFIRMADA",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP002 - Paciente - Intentar reservar un horario ocupado",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": 1,\n    \"usuario_id\": 1,\n    \"servicio\": \"string\",\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\n    \"estado\": \"pendiente\",\n    \"notas\": \"string\",\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP002 - Paciente - Consultar reserva creada en horario ocupado",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "25"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP002 - Paciente - Confirmar reserva pendiente horario ocupado",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/1/confirmar",
+              "protocol": "https",
+              "host": [
+                "aiquaa-sandbox-api",
+                "vercel",
+                "app"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1",
+                "confirmar"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP002 -UPDATE - HORARIO OCUPADO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE reservas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"confirmada\",\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CP002 - Paciente - Consultar reserva creada en horario ocupado",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener reserva por id Copy",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reservas de un usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT servicio, fecha_hora, estado FROM reservas WHERE usuario_id = $1\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar una reserva",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE reservas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"confirmada\",\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listado de reservas",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": [\r\n    {\r\n      \"id\": 1,\r\n      \"usuario_id\": 1,\r\n      \"servicio\": \"string\",\r\n      \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n      \"estado\": \"pendiente\",\r\n      \"notas\": \"string\",\r\n      \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n    }\r\n  ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Crear reserva",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": 1,\n    \"usuario_id\": 1,\n    \"servicio\": \"string\",\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\n    \"estado\": \"pendiente\",\n    \"notas\": \"string\",\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener reserva por id",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reemplazar reserva",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"id\": 1,\n    \"usuario_id\": 1,\n    \"servicio\": \"string\",\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\n    \"estado\": \"pendiente\",\n    \"notas\": \"string\",\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar reserva (soft-delete)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/1",
+              "protocol": "https",
+              "host": [
+                "aiquaa-sandbox-api",
+                "vercel",
+                "app"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar reserva",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/1/confirmar",
+              "protocol": "https",
+              "host": [
+                "aiquaa-sandbox-api",
+                "vercel",
+                "app"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1",
+                "confirmar"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancelar reserva",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"data\": {\r\n    \"id\": 1,\r\n    \"usuario_id\": 1,\r\n    \"servicio\": \"string\",\r\n    \"fecha_hora\": \"2026-08-30T17:52:52.070Z\",\r\n    \"estado\": \"pendiente\",\r\n    \"notas\": \"string\",\r\n    \"created_at\": \"2026-08-30T17:52:52.070Z\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/1/cancelar",
+              "protocol": "https",
+              "host": [
+                "aiquaa-sandbox-api",
+                "vercel",
+                "app"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1",
+                "cancelar"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

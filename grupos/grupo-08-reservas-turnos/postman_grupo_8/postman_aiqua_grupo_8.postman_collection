@@ -1,0 +1,604 @@
+{
+  "info": {
+    "_postman_id": "baa33e52-d40e-460b-9189-bc5a8b080483",
+    "name": "aiqua_grupo_8",
+    "description": "Colección de práctica para consumir el API sandbox del curso de Automatización de Pruebas de Software. Configura las variables `baseUrl` y `apiKey` antes de correr los requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "57809692",
+    "_collection_link": "https://go.postman.co/collection/57809692-baa33e52-d40e-460b-9189-bc5a8b080483?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "SQL - SELECT",
+      "item": [
+        {
+          "name": "Listar usuarios activos XML",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<query>\n  <sql>SELECT id, nombre, email FROM usuarios WHERE activo = $1</sql>\n  <params>\n    <param>true</param>\n  </params>\n</query>",
+              "options": {
+                "raw": {
+                  "language": "xml"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar usuarios activos JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Validar que el nombre de Renata este dentro de la respuesta', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data[0].nombre).to.eql('Renata Aguilar');\r\n});\r\n\r\npm.test('Validar que el nombre de Ana este dentro de la respuesta', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data[0].nombre).to.eql('Jose no existe');\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n   \"sql\": \"SELECT  id,nombre,email,activo,documento_tipo,documento_numero,fecha_nacimiento,direccion,kyc_estado,created_at FROM usuarios WHERE activo = $1\",\n  \"params\": [true] \n} ",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar reservas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Validar que el nombre de Ana este dentro de la respuesta', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data[0].nombre).to.eql('Ana Torres');\r\n});\r\n\r\npm.test('Validar que el nombre de Ana este dentro de la respuesta', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data[0].nombre).to.eql('Jose no existe');\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n     \"sql\": \"SELECT * FROM reservas\"\n} ",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filtrar ordenes por estado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, producto, monto, estado FROM ordenes WHERE estado = $1\",\n  \"params\": [\"pagada\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Join usuarios + tickets abiertos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT u.nombre, t.asunto, t.prioridad FROM usuarios u JOIN tickets t ON t.usuario_id = u.id WHERE t.estado = $1\",\n  \"params\": [\"abierto\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SQL - UPDATE",
+      "item": [
+        {
+          "name": "Cerrar un ticket por id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE tickets SET estado = $1 WHERE id = $2\",\n  \"params\": [\"cerrado\", 1]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Marcar orden como pagada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE ordenes SET estado = $1 WHERE id = $2\",\n  \"params\": [\"pagada\", 6]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Grupo 8 - Reservas / Turnos",
+      "item": [
+        {
+          "name": "Listar usuarios usuarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "\r\n//validar conexión \r\npm.test(\"Código de estado es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\n// validar que todos los resultados sean verdaderos\r\npm.test(\"Todos los usuarios devueltos están activos\", function () {\r\n    var jsonData = pm.response.json();\r\n    \r\n    // Ajusta 'jsonData' si tu API devuelve los datos dentro de una propiedad (ej. jsonData.data o jsonData.rows)\r\n    var usuarios = Array.isArray(jsonData) ? jsonData : (jsonData.data || jsonData.rows);\r\n    \r\n    pm.expect(usuarios).to.be.an('array');\r\n    \r\n    usuarios.forEach(function(usuario, index) {\r\n        pm.expect(usuario.activo, `El usuario en el índice ${index} no está activo`).to.eql(true);\r\n    });\r\n});\r\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n   \"sql\": \"SELECT  id,nombre,email,activo,documento_tipo,documento_numero,fecha_nacimiento,direccion,kyc_estado,created_at FROM usuarios WHERE activo = $1\",\n  \"params\": [true] \n} ",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Reservas_SQL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "//validar conexión \r\npm.test(\"Código de estado es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\n//verificar si trae resultado: \r\npm.test('Listar reservas', function () {\r\n    var jsonData = pm.response.json();    \r\n    pm.expect(jsonData).to.have.property('data');\r\n    pm.expect(jsonData.data).to.be.an('array').that.is.not.empty; \r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, usuario_id, servicio, fecha_hora,notas, estado, created_at FROM reservas WHERE usuario_id = $1\",\n  \"params\": [\n    1\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Reservas con API",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "//verificar si trae resultado: \r\npm.test('Listar reservas', function () {\r\n    var jsonData = pm.response.json();    \r\n    pm.expect(jsonData).to.have.property('data');\r\n    pm.expect(jsonData.data).to.be.an('array').that.is.not.empty; \r\n});"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar una reserva",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "//validar conexión  \r\npm.test(\"El código de estado es un error de validación (400 o 422)\", function () {\r\n    pm.expect(pm.response.code).to.be.oneOf([400, 422]);\r\n});\r\n\r\n    // Verificar que el mensaje de error indique la falta de estos campos \r\n\r\npm.test(\"El mensaje de error indica que 'servicio' es obligatorio\", function () {\r\n    var jsonData = pm.response.json();\r\n    var respuestaStr = JSON.stringify(jsonData).toLowerCase();\r\n    pm.expect(respuestaStr).to.include('servicio');\r\n});\r\n\r\npm.test(\"El mensaje de error indica que 'fecha' es obligatoria\", function () {\r\n    var jsonData = pm.response.json();\r\n    var respuestaStr = JSON.stringify(jsonData).toLowerCase();\r\n    pm.expect(respuestaStr).to.include('fecha');\r\n});\r\n\r\n // control de fecha pasada\r\npm.test(\"La fecha y hora debe ser mayor o igual a ahora\", function () {\r\n    var jsonData = pm.response.json();\r\n    var fechaRespuestaStr = jsonData.fechaHora || (jsonData.data && jsonData.data.fechaHora);    \r\n    \r\n    pm.expect(fechaRespuestaStr, \"Fecha obligatorio\").to.be.a('string');    \r\n    \r\n    var fechaRespuesta = new Date(fechaRespuestaStr).getTime();\r\n        // o nos aseguramos de tomar el tiempo \r\n    var ahora = new Date().getTime() - 60000;     \r\n    console.log(\"Fecha respuesta:\", fechaRespuestaStr, \"(\", fechaRespuesta, \")\");\r\n    console.log(\"Fecha ahora (-margen):\", new Date(ahora).toISOString(), \"(\", ahora, \")\");    \r\n    pm.expect(fechaRespuesta).to.be.at.least(ahora, \"No se puede registrar una fecha y hora pasada\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas?usuarioId=2&servicio=servicio 1 y servicio 2&fechaHora=2026-08-31T20:07:16.027Z&notas=sin notas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "2"
+                },
+                {
+                  "key": "servicio",
+                  "value": "servicio 1 y servicio 2"
+                },
+                {
+                  "key": "fechaHora",
+                  "value": "2026-08-31T20:07:16.027Z"
+                },
+                {
+                  "key": "notas",
+                  "value": "sin notas"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar una reserva_SQL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "//validar conexión \r\npm.test(\"Código de estado es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Verificar que el UPDATE afectó registros\", function () {\r\n    // 1. Validar que la respuesta HTTP sea exitosa\r\n    pm.response.to.have.status(200);    \r\n    var jsonData = pm.response.json();    \r\n    // 2. Validar el contador de filas afectadas (PostgreSQL suele devolver 'rowCount')\r\n    // Ajusta la propiedad ('rowCount', 'affectedRows', etc.) según lo que retorne tu API\r\n    var filasAfectadas = jsonData.rowCount !== undefined ? jsonData.rowCount : jsonData.affectedRows;    \r\n    if (filasAfectadas !== undefined) {\r\n        pm.expect(filasAfectadas).to.be.at.least(1, \"El UPDATE no afectó a ningún registro (el ID 1 no existe)\");\r\n    }\r\n});\r\n\r\n\r\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE reservas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"confirmada\",\n    1\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": ""
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Docs",
+      "item": [
+        {
+          "name": "OpenAPI spec (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docs"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://aiquaa-sandbox-api.vercel.app"
+    },
+    {
+      "key": "apiKey",
+      "value": "sbx_demo_f581ca21e68a347288c94d71"
+    }
+  ]
+}

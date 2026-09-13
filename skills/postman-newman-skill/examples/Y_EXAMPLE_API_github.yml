@@ -1,0 +1,35 @@
+name: Newman — Example API
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  newman:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run collection
+        run: |
+          newman run examples/C_EXAMPLE_API.json \
+            -e examples/E_EXAMPLE_API.json \
+            -r cli,json,htmlextra \
+            --reporter-json-export results/newman-results.json \
+            --reporter-htmlextra-export results/newman-report.html \
+            --bail
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: results/

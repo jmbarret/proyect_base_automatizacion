@@ -19,7 +19,8 @@ test.describe('Smoke — AIQUAA', () => {
   });
 
   test('el login del laboratorio carga sin error', async ({ page }) => {
-    const response = await page.goto('/labs/test-app/login');
+    const response = await page.goto('/auth/login');
     expect(response?.status()).toBeLessThan(400);
+    await expect(page.getByTestId('auth-login-form')).toBeVisible();
   });
 });

@@ -1,0 +1,217 @@
+{
+  "info": {
+    "_postman_id": "b504904a-8598-4c26-b8f8-212890ec4505",
+    "name": "Grupo 2- Tarea2",
+    "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "57655715",
+    "_collection_link": "https://go.postman.co/collection/57655715-b504904a-8598-4c26-b8f8-212890ec4505?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "POST - Transferencia a cuenta inactiva (Rechazo)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// 0. Inicializar utils si no está definido\r",
+              "if (typeof utils === \"undefined\") {\r",
+              "    utils = {\r",
+              "        bodySqlRest: function (sql, params) {\r",
+              "            const base = pm.environment.get(\"baseUrl\");\r",
+              "            const key = pm.environment.get(\"apiKey\");\r",
+              "            return {\r",
+              "                url: base + \"/api/v1/sql/select\",\r",
+              "                method: \"POST\",\r",
+              "                header: {\r",
+              "                    \"Content-Type\": \"application/json\",\r",
+              "                    \"x-api-key\": key\r",
+              "                },\r",
+              "                body: {\r",
+              "                    mode: \"raw\",\r",
+              "                    raw: JSON.stringify({ sql: sql, params: params || [] })\r",
+              "                }\r",
+              "            };\r",
+              "        }\r",
+              "    };\r",
+              "}\r",
+              "\r",
+              "// 1. Guardar la cantidad total de transferencias\r",
+              "const reqCount = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");\r",
+              "\r",
+              "pm.sendRequest(reqCount, (err, res) => {\r",
+              "    if (!err && res && res.json) {\r",
+              "        pm.variables.set(\"totalAntes\", res.json().data[0].total);\r",
+              "    }\r",
+              "    \r",
+              "    // 2. Buscar cuenta ORIGEN activa con saldo mayor o igual a 5.000.000\r",
+              "    const reqOrigen = utils.bodySqlRest(\"SELECT id FROM cuentas WHERE activa = true AND saldo >= 5000000 LIMIT 1\");\r",
+              "    pm.sendRequest(reqOrigen, (errOrigen, resOrigen) => {\r",
+              "        const dataOrigen = resOrigen?.json()?.data;\r",
+              "        \r",
+              "        if (errOrigen || !dataOrigen || dataOrigen.length === 0) {\r",
+              "            pm.expect.fail(\"PRE-CONDICIÓN FALLIDA: No hay ninguna cuenta activa con saldo >= 5.000.000.\");\r",
+              "        } else {\r",
+              "            const origenId = dataOrigen[0].id;\r",
+              "            pm.environment.set(\"cuentaOrigenId\", origenId);\r",
+              "            console.log(\"Cuenta Origen asignada:\", origenId);\r",
+              "        }\r",
+              "\r",
+              "        // 3. Buscar cuenta DESTINO inactiva\r",
+              "        const reqDestino = utils.bodySqlRest(\"SELECT id FROM cuentas WHERE activa = false LIMIT 1\");\r",
+              "        pm.sendRequest(reqDestino, (errDestino, resDestino) => {\r",
+              "            const dataDestino = resDestino?.json()?.data;\r",
+              "            \r",
+              "            if (errDestino || !dataDestino || dataDestino.length === 0) {\r",
+              "                pm.expect.fail(\"PRE-CONDICIÓN FALLIDA: No hay ninguna cuenta inactiva en la BD.\");\r",
+              "            } else {\r",
+              "                const destinoId = dataDestino[0].id;\r",
+              "                pm.environment.set(\"cuentaDestinoBloqueadaId\", destinoId);\r",
+              "                console.log(\"Cuenta Destino Inactiva asignada:\", destinoId);\r",
+              "            }\r",
+              "        });\r",
+              "    });\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Exigir código de error de rechazo\r",
+              "pm.test(\"La API rechazó la transferencia a cuenta bloqueada\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);\r",
+              "});\r",
+              "\r",
+              "// Validar que la BD no haya sufrido cambios\r",
+              "const reqCountPost = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");\r",
+              "pm.sendRequest(reqCountPost, (err, res) => {\r",
+              "    pm.test(\"La BD NO registró la transferencia\", function () {\r",
+              "        const totalDespues = res.json().data[0].total;\r",
+              "        const totalAntes = pm.variables.get(\"totalAntes\");\r",
+              "        pm.expect(Number(totalDespues)).to.eql(Number(totalAntes));\r",
+              "    });\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "sbx_demo_f581ca21e68a347288c94d71",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\r\n  \"cuentaDestinoId\": {{cuentaDestinoBloqueadaId}},\r\n  \"monto\": {{monto}},\r\n  \"descripcion\": \"Transferencia a cuenta Inactiva\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transferencias",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "transferencias"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Transferencia con Saldo Insuficiente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 1. Validar que la API rechace la petición con un error de cliente (400 o 422)\r\npm.test(\"Status code es 400 Bad Request o 422 Unprocessable Entity\", function () {\r\n    pm.expect(pm.response.code).to.be.oneOf([400, 422]);\r\n});\r\n\r\n// 2. Validar que la respuesta contenga un mensaje descriptivo de saldo insuficiente\r\nconst resBody = pm.response.json();\r\n\r\npm.test(\"La API devuelve un mensaje de error por saldo insuficiente\", function () {\r\n    const mensaje = JSON.stringify(resBody).toLowerCase();\r\n    pm.expect(mensaje).to.include(\"insuficiente\");\r\n});\r\n\r\n// 3. Verificación en BD: Confirmar que NO se insertó la transferencia\r\nconst reqCount = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");\r\n\r\npm.sendRequest(reqCount, (err, res) => {\r\n    pm.test(\"Verificación en BD: No se generó ninguna transacción nueva\", function () {\r\n        pm.expect(err).to.be.null;\r\n        const totalDespues = res.json().data[0].total;\r\n        const totalAntes = pm.variables.get(\"totalAntes\");\r\n        \r\n        pm.expect(parseInt(totalDespues)).to.eql(parseInt(totalAntes));\r\n    });\r\n});"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 0. Inicializar utils si no está definido\r\nif (typeof utils === \"undefined\") {\r\n    utils = {\r\n        bodySqlRest: function (sql, params) {\r\n            const base = pm.environment.get(\"baseUrl\");\r\n            const key = pm.environment.get(\"apiKey\");\r\n            return {\r\n                url: base + \"/api/v1/sql/select\",\r\n                method: \"POST\",\r\n                header: {\r\n                    \"Content-Type\": \"application/json\",\r\n                    \"x-api-key\": key\r\n                },\r\n                body: {\r\n                    mode: \"raw\",\r\n                    raw: JSON.stringify({ sql: sql, params: params || [] })\r\n                }\r\n            };\r\n        }\r\n    };\r\n}\r\n\r\n// 1. Guardar total de transferencias previo\r\nconst reqCount = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");\r\n\r\npm.sendRequest(reqCount, (errCount, resCount) => {\r\n    if (!errCount && resCount?.json()?.data) {\r\n        pm.variables.set(\"totalAntes\", resCount.json().data[0].total);\r\n    }\r\n\r\n    // 2. Buscar cuenta ORIGEN activa y calcular monto excedido\r\n    const reqOrigen = utils.bodySqlRest(\"SELECT id, saldo FROM cuentas WHERE activa = true LIMIT 1\");\r\n    pm.sendRequest(reqOrigen, (errOrigen, resOrigen) => {\r\n        const dataOrigen = resOrigen?.json()?.data;\r\n        if (errOrigen || !dataOrigen || dataOrigen.length === 0) {\r\n            pm.expect.fail(\"PRE-CONDICIÓN FALLIDA: No hay ninguna cuenta origen activa en la BD.\");\r\n        } else {\r\n            const origenId = parseInt(dataOrigen[0].id, 10);\r\n            const saldoDisponible = parseFloat(dataOrigen[0].saldo);\r\n            const montoExcedido = saldoDisponible + 50000;\r\n\r\n            pm.environment.set(\"cuentaOrigenId\", origenId);\r\n            pm.variables.set(\"montoExcedido\", montoExcedido);\r\n\r\n            // 3. Buscar cuenta DESTINO activa distinta a la de origen\r\n            const reqDestino = utils.bodySqlRest(\"SELECT id FROM cuentas WHERE activa = true AND id != $1 LIMIT 1\", [origenId]);\r\n            pm.sendRequest(reqDestino, (errDestino, resDestino) => {\r\n                const dataDestino = resDestino?.json()?.data;\r\n                if (errDestino || !dataDestino || dataDestino.length === 0) {\r\n                    pm.expect.fail(\"PRE-CONDICIÓN FALLIDA: No hay ninguna cuenta destino activa habilitada.\");\r\n                } else {\r\n                    const destinoId = parseInt(dataDestino[0].id, 10);\r\n                    pm.environment.set(\"cuentaDestinoId\", destinoId);\r\n                }\r\n            });\r\n        }\r\n    });\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "sbx_demo_f581ca21e68a347288c94d71"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\r\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\r\n  \"monto\": {{montoExcedido}},\r\n  \"descripcion\": \"Transferencia con saldo insuficiente\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/transferencias",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "transferencias"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          "utils.bodySqlRest"
+        ]
+      }
+    }
+  ]
+}

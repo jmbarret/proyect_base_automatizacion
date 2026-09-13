@@ -21,6 +21,10 @@ Cada equipo debe entregar como minimo:
 - coleccion Postman/Newman funcional
 - environment de ejecucion
 - assertions basicas
+- patron SQL REST dinamico (pre-request + post-response validando la base de datos) sobre al
+  menos un endpoint de escritura del modulo propio — ver
+  [`docs/TAREA-SQL-REST-DINAMICO.md`](docs/TAREA-SQL-REST-DINAMICO.md) (entrega: viernes
+  04/09/2026)
 
 ## 4. UI
 

@@ -1,0 +1,75 @@
+# Y_EXAMPLE_playwright.yml
+# Playwright E2E tests — Example App
+# Generado por skill playwright · aiquaa.com
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  nodeVersion: '20.x'
+  resultsDir: '$(Build.ArtifactStagingDirectory)/playwright-results'
+
+steps:
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: $(nodeVersion)
+    displayName: Instalar Node.js
+
+  - script: npm ci
+    displayName: Instalar dependencias npm
+
+  - script: npx playwright install --with-deps chromium
+    displayName: Instalar Chromium
+
+  - script: mkdir -p $(resultsDir)
+    displayName: Crear directorio de resultados
+
+  - script: npx playwright test --reporter=list,json,junit,html
+    displayName: Ejecutar tests Playwright
+    continueOnError: true
+    env:
+      BASE_URL: $(baseUrl)
+      TEST_USER: $(testUser)
+      TEST_PASSWORD: $(testPassword)
+      API_TOKEN: $(apiToken)
+      CI: true
+
+  - script: |
+      cp results/playwright-results.json $(resultsDir)/ 2>/dev/null || true
+      cp results/playwright-junit.xml    $(resultsDir)/ 2>/dev/null || true
+      cp -r results/playwright-report    $(resultsDir)/ 2>/dev/null || true
+    displayName: Copiar resultados
+    condition: always()
+
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '$(resultsDir)/playwright-junit.xml'
+      testRunTitle: 'Playwright E2E — Example App'
+      failTaskOnFailedTests: true
+    displayName: Publicar en Azure Test Plans
+
+  - script: |
+      pip install reportlab --quiet
+      python reporter/playwright_report.py \
+        --results     $(resultsDir)/playwright-results.json \
+        --output      $(resultsDir)/INFORME_E2E_EXAMPLE.pdf \
+        --app-name    "Example App" \
+        --environment "QA"
+    displayName: Generar informe PDF ejecutivo
+    condition: always()
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: $(Build.ArtifactStagingDirectory)
+      artifactName: playwright-results
+    displayName: Subir artefactos

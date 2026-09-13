@@ -1,0 +1,223 @@
+{
+  "info": {
+    "_postman_id": "1e70067a-a9a1-4ab4-b216-ecd43de95cdb",
+    "name": "Marcelo Caceres",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "36702991"
+  },
+  "item": [
+    {
+      "name": "1 Listar reservas (Grupo 8)​",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "const reserva = response.data.find(r => r.estado === \"pendiente\");",
+              "if (reserva) {",
+              "    pm.environment.set(\"reserva_id\", reserva.id);",
+              "    console.log(\"reserva_id guardado:\", reserva.id);",
+              "} else {",
+              "    console.warn(\"No se encontró ninguna reserva con estado pendiente\");",
+              "}",
+              "",
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "",
+              "pm.test(\"El sistema debe responder con un error de validación\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 401, 409, 422]);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "YOUR_SECRET_TOKEN",
+            "disabled": true
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "reservas"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3 Obtener reserva por id (Grupo 8)​",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "\r",
+              "pm.test(\"El sistema debe responder con un error de validación\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 401, 409, 422]);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "YOUR_SECRET_TOKEN",
+            "disabled": true
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/{{reserva_id}}",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "reservas",
+            "{{reserva_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6 Confirmar reserva (Grupo 8)​",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "\r",
+              "pm.test(\"El sistema debe responder con un error de validación\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 401, 409, 422]);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "YOUR_SECRET_TOKEN",
+            "disabled": true
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/reservas/{{reserva_id}}/confirmar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "reservas",
+            "{{reserva_id}}",
+            "confirmar"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

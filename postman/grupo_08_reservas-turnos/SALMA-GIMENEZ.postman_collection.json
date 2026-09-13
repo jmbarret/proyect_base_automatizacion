@@ -1,0 +1,225 @@
+{
+	"info": {
+		"_postman_id": "79d00f90-4951-4888-8c05-d968ad9e6e90",
+		"name": "SALMA-GIMENEZ",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "51832676",
+		"_collection_link": "https://sagimenez98-7042048.postman.co/workspace/Salma-Gimenez's-Workspace~112dd6e4-d4f1-4ac5-8778-030b38607bac/collection/51832676-79d00f90-4951-4888-8c05-d968ad9e6e90?action=share&source=collection_link&creator=51832676"
+	},
+	"item": [
+		{
+			"name": "CP001 - Reservas - Consulta exitosa de una reserva existente",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"La consulta de la reserva es exitosa\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"La reserva consultada corresponde al ID 26\", function () {\r",
+							"    const jsonData = pm.response.json();\r",
+							"\r",
+							"    pm.expect(jsonData.data.id).to.eql(\"26\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"La reserva contiene los datos esperados\", function () {\r",
+							"    const reserva = pm.response.json().data;\r",
+							"\r",
+							"    pm.expect(reserva).to.have.property(\"id\");\r",
+							"    pm.expect(reserva).to.have.property(\"usuario_id\");\r",
+							"    pm.expect(reserva).to.have.property(\"servicio\");\r",
+							"    pm.expect(reserva).to.have.property(\"fecha_hora\");\r",
+							"    pm.expect(reserva).to.have.property(\"estado\");\r",
+							"    pm.expect(reserva).to.have.property(\"activo\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"El tiempo de respuesta es menor a 3000ms\", function () {\r",
+							"    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/reservas/26",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"reservas",
+						"26"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "CP002 - Reservas - Reserva exitosa de un turno",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"La reserva se crea correctamente\", function () {\r",
+							"    pm.response.to.have.status(201);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"La respuesta contiene los datos de la reserva\", function () {\r",
+							"    const jsonData = pm.response.json();\r",
+							"\r",
+							"    pm.expect(jsonData).to.have.property(\"data\");\r",
+							"    pm.expect(jsonData.data).to.have.property(\"id\");\r",
+							"    pm.expect(jsonData.data).to.have.property(\"usuario_id\");\r",
+							"    pm.expect(jsonData.data).to.have.property(\"servicio\");\r",
+							"    pm.expect(jsonData.data).to.have.property(\"fecha_hora\");\r",
+							"    pm.expect(jsonData.data).to.have.property(\"estado\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Los datos de la reserva son correctos\", function () {\r",
+							"    const reserva = pm.response.json().data;\r",
+							"\r",
+							"    pm.expect(reserva.usuario_id).to.eql(\"1\");\r",
+							"    pm.expect(reserva.servicio).to.eql(\"Corte de Cabello\");\r",
+							"    pm.expect(reserva.estado).to.eql(\"pendiente\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"El tiempo de respuesta es menor a 3000ms\", function () {\r",
+							"    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"usuarioId\": 1,\n  \"servicio\": \"Corte de Cabello\",\n  \"fechaHora\": \"05-09-2026\",\n  \"notas\": \"Salma Gimenez\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/reservas",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"reservas"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "CP003 - Reservas - Rechazo de reserva con fecha anterior a la actual",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"La reserva con fecha anterior no debe ser creada\", function () {\r",
+							"    pm.expect(pm.response.code).to.not.eql(201);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"El sistema debe responder con un error de validación\", function () {\r",
+							"    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"El tiempo de respuesta es menor a 3000ms\", function () {\r",
+							"    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"usuarioId\": 2,\n  \"servicio\": \"Corte de Cabello\",\n  \"fechaHora\": \"01-01-1998\",\n  \"notas\": \"Salma Gimenez\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/reservas",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"reservas"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

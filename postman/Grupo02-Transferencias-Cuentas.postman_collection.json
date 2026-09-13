@@ -1,0 +1,1029 @@
+{
+  "info": {
+    "_postman_id": "4fddb3b0-d29b-4714-a462-d1804a6d4c94",
+    "name": "Grupo 02 - Transferencias entre Cuentas",
+    "description": "Colección API para Transferencias entre Cuentas (Grupo 02).\n\n**Datos dinámicos (SQL Sandbox)**\nCada escenario consulta la BD con `POST {{baseUrl}}/api/v1/sql/select` ([docs](https://aiquaa-sandbox-api.vercel.app/docs#tag/sql-sandbox/POST/api/v1/sql/select)) antes de transferir. Body: `{ \"sql\": \"... $1\", \"params\": [...] }`.\n\nNo hace falta cargar IDs a mano: el pre-request elige cuentas, saldos y montos reales.\n\n**Escenarios**\n1. Happy path\n2. Saldo insuficiente\n3. Monto exacto (vacía una cuenta chica)\n4. Destino bloqueado/inactivo\n5. Misma cuenta origen/destino\n6. Monto 0 y negativo\n\nEl folder **00 - SQL Sandbox** deja ver las queries y también llena variables si lo corrés primero.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "33454173"
+  },
+  "item": [
+    {
+      "name": "00 - SQL Sandbox (datos dinámicos)",
+      "item": [
+        {
+          "name": "SQL - Cuentas activas con saldo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const rows = utils.rows(pm.response);",
+                  "",
+                  "pm.test('SQL REST respondió 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('data/rows es un arreglo con al menos 2 cuentas activas', function () {",
+                  "    pm.expect(rows).to.be.an('array').that.has.length.of.at.least(2);",
+                  "    pm.expect(rows[0]).to.include.keys('id', 'saldo');",
+                  "});",
+                  "",
+                  "if (rows.length >= 2) {",
+                  "    utils.applyCuentas(rows[0], rows[1]);",
+                  "    const saldo = Number(rows[0].saldo);",
+                  "    const monto = Math.max(1, Math.min(1000, Math.floor(saldo / 10) || 1));",
+                  "    pm.collectionVariables.set('montoValido', String(monto));",
+                  "    pm.collectionVariables.set('montoMayorAlSaldo', String(saldo + 50000));",
+                  "    console.log('SQL fixture activas | origen=', rows[0].id, 'destino=', rows[1].id, 'monto=', monto);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, saldo, activa FROM cuentas WHERE activa = true AND saldo > 0 ORDER BY saldo DESC LIMIT 2\",\n  \"params\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sql", "select"]
+            },
+            "description": "Obtiene las 2 cuentas activas con más saldo y setea `cuentaOrigenId`, `cuentaDestinoId` y `montoValido`."
+          },
+          "response": []
+        },
+        {
+          "name": "SQL - Cuenta inactiva / bloqueada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const rows = utils.rows(pm.response);",
+                  "",
+                  "pm.test('SQL REST respondió 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Hay al menos una cuenta inactiva', function () {",
+                  "    pm.expect(rows).to.be.an('array').that.is.not.empty;",
+                  "});",
+                  "",
+                  "if (rows[0]) {",
+                  "    pm.collectionVariables.set('cuentaBloqueadaId', String(rows[0].id));",
+                  "    console.log('SQL fixture inactiva | id=', rows[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, saldo, activa FROM cuentas WHERE activa = false LIMIT 1\",\n  \"params\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sql", "select"]
+            },
+            "description": "Busca una cuenta `activa = false` y setea `cuentaBloqueadaId`."
+          },
+          "response": []
+        },
+        {
+          "name": "SQL - COUNT transferencias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const rows = utils.rows(pm.response);",
+                  "",
+                  "pm.test('SQL REST respondió 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Devuelve total de transferencias', function () {",
+                  "    pm.expect(rows[0]).to.have.property('total');",
+                  "});",
+                  "",
+                  "pm.variables.set('totalAntes', String(rows[0] ? rows[0].total : 0));",
+                  "pm.collectionVariables.set('totalTransferenciasSetup', String(rows[0] ? rows[0].total : 0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT COUNT(*) AS total FROM transferencias\",\n  \"params\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sql", "select"]
+            },
+            "description": "Baseline de filas en `transferencias` para asserts de no-inserción."
+          },
+          "response": []
+        }
+      ],
+      "description": "Queries explícitas a SQL Sandbox. Los escenarios 1-6 vuelven a consultar solos en el pre-request, así que este folder es opcional para inspeccionar datos."
+    },
+    {
+      "name": "Escenario 1 - Happy Path (Transferencia exitosa)",
+      "item": [
+        {
+          "name": "POST transferencia exitosa entre cuentas activas",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('happy');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "const destinoId = pm.collectionVariables.get('cuentaDestinoId');",
+                  "const monto = Number(pm.collectionVariables.get('montoValido'));",
+                  "const saldoOrigenAntes = Number(pm.variables.get('saldoOrigenAntes'));",
+                  "const saldoDestinoAntes = Number(pm.variables.get('saldoDestinoAntes'));",
+                  "",
+                  "pm.test('Status code indica creación exitosa (200 o 201)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test('Content-Type es JSON', function () {",
+                  "    const ct = pm.response.headers.get('Content-Type') || '';",
+                  "    pm.expect(ct.toLowerCase()).to.include('application/json');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "const data = jsonData.data || jsonData;",
+                  "",
+                  "pm.test('La respuesta incluye un id de transferencia', function () {",
+                  "    pm.expect(data).to.have.property('id');",
+                  "    pm.collectionVariables.set('transferenciaId', String(data.id));",
+                  "});",
+                  "",
+                  "pm.test('El monto transferido coincide con lo solicitado', function () {",
+                  "    if (data.monto !== undefined) {",
+                  "        pm.expect(Number(data.monto)).to.eql(monto);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Origen y destino coinciden con lo enviado', function () {",
+                  "    const o = data.cuentaOrigenId || data.cuenta_origen_id;",
+                  "    const d = data.cuentaDestinoId || data.cuenta_destino_id;",
+                  "    if (o !== undefined) pm.expect(String(o)).to.eql(String(origenId));",
+                  "    if (d !== undefined) pm.expect(String(d)).to.eql(String(destinoId));",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 3000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});",
+                  "",
+                  "utils.assertNuevaTransferencia();",
+                  "utils.assertSaldosMovidos(origenId, destinoId, monto);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{montoValido}},\n  \"descripcion\": \"Happy path - transferencia exitosa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            },
+            "description": "Pre-request SQL: 2 cuentas activas con saldo. Monto = min(1000, 10% del saldo) para no vaciar el origen."
+          },
+          "response": []
+        },
+        {
+          "name": "GET verificar transferencia creada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const id = pm.collectionVariables.get('transferenciaId');",
+                  "if (!id) {",
+                  "    throw new Error('No hay transferenciaId. Corré primero el POST del escenario 1.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code es 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "const data = jsonData.data || jsonData;",
+                  "const esperado = String(pm.collectionVariables.get('transferenciaId'));",
+                  "",
+                  "pm.test('La transferencia consultada corresponde al id creado', function () {",
+                  "    pm.expect(String(data.id)).to.eql(esperado);",
+                  "});",
+                  "",
+                  "pm.test('La transferencia no está rechazada', function () {",
+                  "    if (data.activo !== undefined) pm.expect(Boolean(data.activo)).to.eql(true);",
+                  "    if (data.estado !== undefined) pm.expect(String(data.estado).toLowerCase()).to.not.eql('rechazada');",
+                  "});",
+                  "",
+                  "pm.test('El monto consultado coincide con el enviado', function () {",
+                  "    if (data.monto !== undefined) {",
+                  "        pm.expect(Number(data.monto)).to.eql(Number(pm.collectionVariables.get('montoValido')));",
+                  "    }",
+                  "});",
+                  "",
+                  "utils.sql('SELECT id, monto FROM transferencias WHERE id = $1', [Number(esperado)]).then(function (rows) {",
+                  "    pm.test('SQL: la transferencia existe en BD con el mismo id', function () {",
+                  "        pm.expect(rows).to.be.an('array').that.is.not.empty;",
+                  "        pm.expect(String(rows[0].id)).to.eql(esperado);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias/{{transferenciaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias", "{{transferenciaId}}"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Transferencia interna exitosa. Cuentas y monto salen de SQL Sandbox en el pre-request."
+    },
+    {
+      "name": "Escenario 2 - Negativo (Saldo insuficiente)",
+      "item": [
+        {
+          "name": "POST transferencia con monto mayor al saldo disponible",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('insufficient');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "const destinoId = pm.collectionVariables.get('cuentaDestinoId');",
+                  "",
+                  "pm.test('Status code indica error de validación (400 o 422)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});",
+                  "",
+                  "pm.test('El mensaje de error menciona saldo insuficiente', function () {",
+                  "    const mensaje = JSON.stringify(pm.response.json()).toLowerCase();",
+                  "    pm.expect(mensaje).to.match(/insuficiente|saldo/);",
+                  "});",
+                  "",
+                  "pm.test('No se devuelve id de transferencia creada', function () {",
+                  "    const body = pm.response.json();",
+                  "    const data = body.data || {};",
+                  "    pm.expect(data.id, 'no debe crear transferencia').to.not.be.ok;",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 3000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});",
+                  "",
+                  "utils.assertNoNuevaTransferencia();",
+                  "utils.assertSaldosSinCambio(origenId, destinoId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{montoMayorAlSaldo}},\n  \"descripcion\": \"Rechazo por saldo insuficiente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            },
+            "description": "SQL lee el saldo real del origen y envía saldo + 50000."
+          },
+          "response": []
+        }
+      ],
+      "description": "Rechazo por saldo insuficiente. El monto se calcula contra el saldo actual en BD."
+    },
+    {
+      "name": "Escenario 3 - Edge Case (Monto exacto del saldo)",
+      "item": [
+        {
+          "name": "POST transferencia por el 100% del saldo disponible",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('exact');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "const destinoId = pm.collectionVariables.get('cuentaDestinoId');",
+                  "const montoExacto = Number(pm.collectionVariables.get('montoExacto'));",
+                  "const saldoDestinoAntes = Number(pm.variables.get('saldoDestinoAntes'));",
+                  "",
+                  "pm.test('Status code indica creación exitosa (200 o 201)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "const data = jsonData.data || jsonData;",
+                  "",
+                  "pm.test('Se creó una transferencia con el monto exacto del saldo', function () {",
+                  "    pm.expect(data).to.have.property('id');",
+                  "    if (data.monto !== undefined) pm.expect(Number(data.monto)).to.eql(montoExacto);",
+                  "});",
+                  "",
+                  "pm.test('Si la API informa saldo origen resultante, es 0', function () {",
+                  "    const restante = data.saldo_origen_resultante !== undefined ? data.saldo_origen_resultante : data.saldoOrigenResultante;",
+                  "    if (restante !== undefined) pm.expect(Number(restante)).to.eql(0);",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 3000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});",
+                  "",
+                  "utils.sql('SELECT id, saldo FROM cuentas WHERE id IN ($1, $2)', [Number(origenId), Number(destinoId)]).then(function (rows) {",
+                  "    pm.test('SQL: origen queda en 0 y destino aumenta el saldo exacto', function () {",
+                  "        const origen = rows.find(function (r) { return String(r.id) === String(origenId); });",
+                  "        const destino = rows.find(function (r) { return String(r.id) === String(destinoId); });",
+                  "        pm.expect(Number(origen.saldo)).to.eql(0);",
+                  "        pm.expect(Number(destino.saldo)).to.eql(saldoDestinoAntes + montoExacto);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{montoExacto}},\n  \"descripcion\": \"Transferencia por el 100% del saldo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            },
+            "description": "SQL elige la cuenta activa con menor saldo > 0 y transfiere ese saldo exacto (`montoExacto`)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Edge: vacía una cuenta chica (no la de mayor saldo) para no romper el resto del runner."
+    },
+    {
+      "name": "Escenario 4 - Negativo (Cuenta destino bloqueada)",
+      "item": [
+        {
+          "name": "POST transferencia hacia cuenta bloqueada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('blocked');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "const destinoId = pm.collectionVariables.get('cuentaBloqueadaId');",
+                  "",
+                  "pm.test('Status code indica error (400, 403 o 422)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 403, 422]);",
+                  "});",
+                  "",
+                  "pm.test('El mensaje menciona cuenta bloqueada o inactiva', function () {",
+                  "    const mensaje = JSON.stringify(pm.response.json()).toLowerCase();",
+                  "    const ok = mensaje.includes('bloquead') || mensaje.includes('inactiv') || mensaje.includes('habilit') || mensaje.includes('activa');",
+                  "    pm.expect(ok, 'el error debe explicar que el destino no está habilitado').to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('No se devuelve id de transferencia creada', function () {",
+                  "    const body = pm.response.json();",
+                  "    const data = body.data || {};",
+                  "    pm.expect(data.id, 'no debe crear transferencia').to.not.be.ok;",
+                  "});",
+                  "",
+                  "utils.assertNoNuevaTransferencia();",
+                  "utils.assertSaldosSinCambio(origenId, destinoId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaBloqueadaId}},\n  \"monto\": {{montoValido}},\n  \"descripcion\": \"Rechazo por destino bloqueado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            },
+            "description": "SQL busca origen activo y destino `activa = false`."
+          },
+          "response": []
+        }
+      ],
+      "description": "Rechazo hacia cuenta inactiva/bloqueada obtenida por SQL."
+    },
+    {
+      "name": "Escenario 5 - Negativo (Misma cuenta origen y destino)",
+      "item": [
+        {
+          "name": "POST transferencia hacia la misma cuenta",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('same_account');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "",
+                  "pm.test('Status code indica error de validación (400 o 422)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});",
+                  "",
+                  "pm.test('El mensaje indica que origen y destino no pueden ser iguales', function () {",
+                  "    const mensaje = JSON.stringify(pm.response.json()).toLowerCase();",
+                  "    const ok = mensaje.includes('misma') || mensaje.includes('igual') || mensaje.includes('origen') || mensaje.includes('destino') || mensaje.includes('distint');",
+                  "    pm.expect(ok, 'el error debe rechazar transferencia a la misma cuenta').to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('No se devuelve id de transferencia creada', function () {",
+                  "    const body = pm.response.json();",
+                  "    const data = body.data || {};",
+                  "    pm.expect(data.id, 'no debe crear transferencia').to.not.be.ok;",
+                  "});",
+                  "",
+                  "pm.test('Response time is less than 3000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});",
+                  "",
+                  "utils.assertNoNuevaTransferencia();",
+                  "utils.assertSaldosSinCambio(origenId, origenId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaOrigenId}},\n  \"monto\": {{montoValido}},\n  \"descripcion\": \"Rechazo: misma cuenta origen y destino\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "SQL elige una cuenta activa y la usa como origen y destino."
+    },
+    {
+      "name": "Escenario 6 - Negativo (Monto inválido)",
+      "item": [
+        {
+          "name": "POST transferencia con monto cero",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('invalid_zero');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "const destinoId = pm.collectionVariables.get('cuentaDestinoId');",
+                  "",
+                  "pm.test('Status code indica error de validación (400 o 422)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});",
+                  "",
+                  "pm.test('El mensaje menciona monto inválido o debe ser mayor a 0', function () {",
+                  "    const mensaje = JSON.stringify(pm.response.json()).toLowerCase();",
+                  "    const ok = mensaje.includes('monto') || mensaje.includes('positivo') || mensaje.includes('mayor') || mensaje.includes('inválid') || mensaje.includes('invalid') || mensaje.includes('cero');",
+                  "    pm.expect(ok).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('No se devuelve id de transferencia creada', function () {",
+                  "    const body = pm.response.json();",
+                  "    const data = body.data || {};",
+                  "    pm.expect(data.id, 'no debe crear transferencia').to.not.be.ok;",
+                  "});",
+                  "",
+                  "utils.assertNoNuevaTransferencia();",
+                  "utils.assertSaldosSinCambio(origenId, destinoId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{montoInvalido}},\n  \"descripcion\": \"Rechazo por monto cero\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST transferencia con monto negativo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "return utils.prepareEscenario('invalid_negative');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const origenId = pm.collectionVariables.get('cuentaOrigenId');",
+                  "const destinoId = pm.collectionVariables.get('cuentaDestinoId');",
+                  "",
+                  "pm.test('Status code indica error de validación (400 o 422)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});",
+                  "",
+                  "pm.test('El mensaje menciona monto inválido o negativo', function () {",
+                  "    const mensaje = JSON.stringify(pm.response.json()).toLowerCase();",
+                  "    const ok = mensaje.includes('monto') || mensaje.includes('negativ') || mensaje.includes('positivo') || mensaje.includes('inválid') || mensaje.includes('invalid');",
+                  "    pm.expect(ok).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('No se devuelve id de transferencia creada', function () {",
+                  "    const body = pm.response.json();",
+                  "    const data = body.data || {};",
+                  "    pm.expect(data.id, 'no debe crear transferencia').to.not.be.ok;",
+                  "});",
+                  "",
+                  "utils.assertNoNuevaTransferencia();",
+                  "utils.assertSaldosSinCambio(origenId, destinoId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{montoInvalido}},\n  \"descripcion\": \"Rechazo por monto negativo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transferencias"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Montos 0 y negativo. Las cuentas se leen por SQL; el monto inválido lo setea el pre-request."
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "x-api-key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (typeof utils === 'undefined') {",
+          "    utils = {",
+          "        bodySqlRest: function (sql, params) {",
+          "            const base = pm.environment.get('baseUrl') || pm.collectionVariables.get('baseUrl');",
+          "            const key = pm.environment.get('apiKey') || pm.collectionVariables.get('apiKey');",
+          "            return {",
+          "                url: base + '/api/v1/sql/select',",
+          "                method: 'POST',",
+          "                header: {",
+          "                    'Content-Type': 'application/json',",
+          "                    'x-api-key': key",
+          "                },",
+          "                body: {",
+          "                    mode: 'raw',",
+          "                    raw: JSON.stringify({ sql: sql, params: params || [] })",
+          "                }",
+          "            };",
+          "        },",
+          "        rows: function (res) {",
+          "            if (!res) return [];",
+          "            try {",
+          "                const body = typeof res.json === 'function' ? res.json() : res;",
+          "                if (Array.isArray(body)) return body;",
+          "                if (body && Array.isArray(body.data)) return body.data;",
+          "                if (body && Array.isArray(body.rows)) return body.rows;",
+          "                if (body && body.data && Array.isArray(body.data.rows)) return body.data.rows;",
+          "                return [];",
+          "            } catch (e) {",
+          "                return [];",
+          "            }",
+          "        },",
+          "        sql: function (query, params) {",
+          "            const self = this;",
+          "            return new Promise(function (resolve, reject) {",
+          "                pm.sendRequest(self.bodySqlRest(query, params), function (err, res) {",
+          "                    if (err) return reject(err);",
+          "                    if (res && res.code >= 400) {",
+          "                        return reject(new Error('SQL REST HTTP ' + res.code + ' ' + res.text()));",
+          "                    }",
+          "                    resolve(self.rows(res));",
+          "                });",
+          "            });",
+          "        },",
+          "        applyCuentas: function (origen, destino) {",
+          "            pm.collectionVariables.set('cuentaOrigenId', String(origen.id));",
+          "            pm.collectionVariables.set('cuentaDestinoId', String(destino.id));",
+          "            pm.variables.set('saldoOrigenAntes', String(origen.saldo));",
+          "            pm.variables.set('saldoDestinoAntes', String(destino.saldo));",
+          "        },",
+          "        snapshotCount: function () {",
+          "            return this.sql('SELECT COUNT(*) AS total FROM transferencias').then(function (rows) {",
+          "                const total = rows[0] && rows[0].total != null ? rows[0].total : 0;",
+          "                pm.variables.set('totalAntes', String(total));",
+          "                return Number(total);",
+          "            });",
+          "        },",
+          "        loadDosActivas: function () {",
+          "            return this.sql(",
+          "                'SELECT id, saldo, activa FROM cuentas WHERE activa = true AND saldo > 0 ORDER BY saldo DESC LIMIT 2'",
+          "            ).then(function (rows) {",
+          "                if (!rows || rows.length < 2) {",
+          "                    throw new Error('PRE-CONDICIÓN SQL: se necesitan 2 cuentas activas con saldo > 0.');",
+          "                }",
+          "                return { origen: rows[0], destino: rows[1] };",
+          "            });",
+          "        },",
+          "        prepareEscenario: function (tipo) {",
+          "            const self = this;",
+          "            return self.snapshotCount().then(function () {",
+          "                if (tipo === 'blocked') {",
+          "                    return self.sql(",
+          "                        'SELECT id, saldo FROM cuentas WHERE activa = true AND saldo > 0 ORDER BY saldo DESC LIMIT 1'",
+          "                    ).then(function (activas) {",
+          "                        if (!activas[0]) throw new Error('PRE-CONDICIÓN SQL: no hay origen activo con saldo.');",
+          "                        const origen = activas[0];",
+          "                        return self.sql(",
+          "                            'SELECT id, saldo, activa FROM cuentas WHERE activa = false AND id <> $1 LIMIT 1',",
+          "                            [Number(origen.id)]",
+          "                        ).then(function (inactivas) {",
+          "                            if (!inactivas[0]) throw new Error('PRE-CONDICIÓN SQL: no hay cuenta inactiva/bloqueada.');",
+          "                            const destino = inactivas[0];",
+          "                            self.applyCuentas(origen, destino);",
+          "                            pm.collectionVariables.set('cuentaBloqueadaId', String(destino.id));",
+          "                            const monto = Math.max(1, Math.min(1000, Math.floor(Number(origen.saldo)) || 1));",
+          "                            pm.collectionVariables.set('montoValido', String(monto));",
+          "                            console.log('SQL blocked | origen=', origen.id, 'destino=', destino.id, 'monto=', monto);",
+          "                        });",
+          "                    });",
+          "                }",
+          "",
+          "                if (tipo === 'exact') {",
+          "                    return self.sql(",
+          "                        'SELECT id, saldo FROM cuentas WHERE activa = true AND saldo > 0 ORDER BY saldo ASC LIMIT 1'",
+          "                    ).then(function (chicas) {",
+          "                        if (!chicas[0]) throw new Error('PRE-CONDICIÓN SQL: no hay cuenta activa con saldo para vaciar.');",
+          "                        const origen = chicas[0];",
+          "                        return self.sql(",
+          "                            'SELECT id, saldo FROM cuentas WHERE activa = true AND id <> $1 ORDER BY saldo DESC LIMIT 1',",
+          "                            [Number(origen.id)]",
+          "                        ).then(function (destinos) {",
+          "                            if (!destinos[0]) throw new Error('PRE-CONDICIÓN SQL: no hay destino activo distinto.');",
+          "                            const destino = destinos[0];",
+          "                            self.applyCuentas(origen, destino);",
+          "                            pm.collectionVariables.set('montoExacto', String(origen.saldo));",
+          "                            console.log('SQL exact | origen=', origen.id, 'saldo=', origen.saldo, 'destino=', destino.id);",
+          "                        });",
+          "                    });",
+          "                }",
+          "",
+          "                if (tipo === 'same_account') {",
+          "                    return self.sql(",
+          "                        'SELECT id, saldo FROM cuentas WHERE activa = true AND saldo > 0 ORDER BY saldo DESC LIMIT 1'",
+          "                    ).then(function (rows) {",
+          "                        if (!rows[0]) throw new Error('PRE-CONDICIÓN SQL: no hay cuenta activa.');",
+          "                        const origen = rows[0];",
+          "                        self.applyCuentas(origen, origen);",
+          "                        const monto = Math.max(1, Math.min(1000, Math.floor(Number(origen.saldo)) || 1));",
+          "                        pm.collectionVariables.set('montoValido', String(monto));",
+          "                        console.log('SQL same_account | id=', origen.id, 'monto=', monto);",
+          "                    });",
+          "                }",
+          "",
+          "                return self.loadDosActivas().then(function (par) {",
+          "                    self.applyCuentas(par.origen, par.destino);",
+          "                    const saldo = Number(par.origen.saldo);",
+          "                    const montoValido = Math.max(1, Math.min(1000, Math.floor(saldo / 10) || 1));",
+          "                    pm.collectionVariables.set('montoValido', String(montoValido));",
+          "                    pm.collectionVariables.set('montoMayorAlSaldo', String(saldo + 50000));",
+          "",
+          "                    if (tipo === 'insufficient') {",
+          "                        console.log('SQL insufficient | origen=', par.origen.id, 'saldo=', saldo, 'monto=', saldo + 50000);",
+          "                    } else if (tipo === 'invalid_zero') {",
+          "                        pm.collectionVariables.set('montoInvalido', '0');",
+          "                        console.log('SQL invalid_zero | origen=', par.origen.id, 'destino=', par.destino.id);",
+          "                    } else if (tipo === 'invalid_negative') {",
+          "                        pm.collectionVariables.set('montoInvalido', '-1000');",
+          "                        console.log('SQL invalid_negative | origen=', par.origen.id, 'destino=', par.destino.id);",
+          "                    } else {",
+          "                        console.log('SQL happy | origen=', par.origen.id, 'destino=', par.destino.id, 'monto=', montoValido);",
+          "                    }",
+          "                });",
+          "            });",
+          "        },",
+          "        assertNoNuevaTransferencia: function () {",
+          "            const totalAntes = pm.variables.get('totalAntes');",
+          "            this.sql('SELECT COUNT(*) AS total FROM transferencias').then(function (rows) {",
+          "                pm.test('SQL: no se insertó una transferencia nueva', function () {",
+          "                    const total = rows[0] && rows[0].total;",
+          "                    pm.expect(Number(total)).to.eql(Number(totalAntes));",
+          "                });",
+          "            });",
+          "        },",
+          "        assertNuevaTransferencia: function () {",
+          "            const totalAntes = Number(pm.variables.get('totalAntes'));",
+          "            this.sql('SELECT COUNT(*) AS total FROM transferencias').then(function (rows) {",
+          "                pm.test('SQL: se registró al menos una transferencia nueva', function () {",
+          "                    pm.expect(Number(rows[0].total)).to.be.at.least(totalAntes + 1);",
+          "                });",
+          "            });",
+          "        },",
+          "        assertSaldosSinCambio: function (origenId, destinoId) {",
+          "            const saldoOrigenAntes = pm.variables.get('saldoOrigenAntes');",
+          "            const saldoDestinoAntes = pm.variables.get('saldoDestinoAntes');",
+          "            this.sql('SELECT id, saldo FROM cuentas WHERE id IN ($1, $2)', [Number(origenId), Number(destinoId)]).then(function (rows) {",
+          "                pm.test('SQL: los saldos de origen y destino no cambiaron', function () {",
+          "                    const origen = rows.find(function (r) { return String(r.id) === String(origenId); });",
+          "                    const destino = rows.find(function (r) { return String(r.id) === String(destinoId); });",
+          "                    if (origen) pm.expect(Number(origen.saldo)).to.eql(Number(saldoOrigenAntes));",
+          "                    if (destino) pm.expect(Number(destino.saldo)).to.eql(Number(saldoDestinoAntes));",
+          "                });",
+          "            });",
+          "        },",
+          "        assertSaldosMovidos: function (origenId, destinoId, monto) {",
+          "            const saldoOrigenAntes = Number(pm.variables.get('saldoOrigenAntes'));",
+          "            const saldoDestinoAntes = Number(pm.variables.get('saldoDestinoAntes'));",
+          "            this.sql('SELECT id, saldo FROM cuentas WHERE id IN ($1, $2)', [Number(origenId), Number(destinoId)]).then(function (rows) {",
+          "                pm.test('SQL: el saldo origen baja y el destino sube en el monto', function () {",
+          "                    const origen = rows.find(function (r) { return String(r.id) === String(origenId); });",
+          "                    const destino = rows.find(function (r) { return String(r.id) === String(destinoId); });",
+          "                    pm.expect(Number(origen.saldo)).to.eql(saldoOrigenAntes - Number(monto));",
+          "                    pm.expect(Number(destino.saldo)).to.eql(saldoDestinoAntes + Number(monto));",
+          "                });",
+          "            });",
+          "        }",
+          "    };",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://aiquaa-sandbox-api.vercel.app" },
+    { "key": "apiKey", "value": "QUxMIFlPVVIgQkFTRSBBUkUgQkVMT05HIFRPIFVT" },
+    { "key": "cuentaOrigenId", "value": "" },
+    { "key": "cuentaDestinoId", "value": "" },
+    { "key": "cuentaBloqueadaId", "value": "" },
+    { "key": "transferenciaId", "value": "" },
+    { "key": "montoValido", "value": "1000" },
+    { "key": "montoMayorAlSaldo", "value": "" },
+    { "key": "montoExacto", "value": "" },
+    { "key": "montoInvalido", "value": "0" }
+  ]
+}

@@ -1,0 +1,2727 @@
+{
+  "info": {
+    "name": "aiquaa Sandbox API",
+    "description": "Colección de práctica para consumir el API sandbox del curso de Automatización de Pruebas de Software. Configura las variables `baseUrl` y `apiKey` antes de correr los requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request Script DE LA COLECCION (icono de la coleccion > pestaña",
+          "// \"Scripts\" > \"Pre-request script\"). Corre antes de CADA request de",
+          "// toda la coleccion, asi que es el lugar para declarar UNA sola vez",
+          "// helpers/valores que todos los requests van a reutilizar, en vez de",
+          "// repetirlos en el pre-request de cada item.",
+          "",
+          "// 1) Helper reusable para consultar la BD via el endpoint sandbox.",
+          "//    Arma el objeto que despues se le pasa a pm.sendRequest(...) para",
+          "//    correr un SELECT de solo lectura contra qa_training.",
+          "if (typeof utils === \"undefined\") {",
+          "  utils = {",
+          "    bodySqlRest: function (sql, params) {",
+          "      return {",
+          "        url: pm.collectionVariables.get(\"baseUrl\") + \"/api/v1/sql/select\",",
+          "        method: \"POST\",",
+          "        header: {",
+          "          \"Content-Type\": \"application/json\",",
+          "          \"x-api-key\": pm.collectionVariables.get(\"apiKey\")",
+          "        },",
+          "        body: {",
+          "          mode: \"raw\",",
+          "          raw: JSON.stringify({ sql: sql, params: params || [] })",
+          "        }",
+          "      };",
+          "    }",
+          "  };",
+          "}",
+          "",
+          "// 2) Valores por defecto del body de \"Crear transferencia\". Se",
+          "//    resetean a su default ANTES DE CADA request (porque este script",
+          "//    corre siempre primero). Si un item necesita un caso distinto,",
+          "//    sobreescribe SOLO el campo que le interesa en su propio",
+          "//    Pre-request Script -- no hace falta tocar el body completo.",
+          "pm.collectionVariables.set(\"cuentaOrigenId\", 1);",
+          "pm.collectionVariables.set(\"cuentaDestinoId\", 2);",
+          "pm.collectionVariables.set(\"monto\", 25000);",
+          "pm.collectionVariables.set(\"descripcion\", \"Pago de alquiler - E2E\");"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://aiquaa-sandbox-api.vercel.app",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "sbx_demo_f581ca21e68a347288c94d71",
+      "type": "string"
+    },
+    {
+      "key": "cuentaOrigenId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "cuentaDestinoId",
+      "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "monto",
+      "value": "25000",
+      "type": "string"
+    },
+    {
+      "key": "descripcion",
+      "value": "Pago de alquiler - E2E",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "SQL - SELECT",
+      "item": [
+        {
+          "name": "Listar usuarios activos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, nombre, email FROM usuarios WHERE activo = $1\",\n  \"params\": [true]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filtrar ordenes por estado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, producto, monto, estado FROM ordenes WHERE estado = $1\",\n  \"params\": [\"pagada\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Join usuarios + tickets abiertos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT u.nombre, t.asunto, t.prioridad FROM usuarios u JOIN tickets t ON t.usuario_id = u.id WHERE t.estado = $1\",\n  \"params\": [\"abierto\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "SQL - UPDATE",
+      "item": [
+        {
+          "name": "Cerrar un ticket por id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE tickets SET estado = $1 WHERE id = $2\",\n  \"params\": [\"cerrado\", 1]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Marcar orden como pagada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE ordenes SET estado = $1 WHERE id = $2\",\n  \"params\": [\"pagada\", 6]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 1 - Autenticacion (sesiones)",
+      "item": [
+        {
+          "name": "Sesiones de un usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT usuario_id, tipo_evento, exitoso, created_at FROM sesiones WHERE usuario_id = $1\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Marcar sesion como revisada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE sesiones SET exitoso = $1 WHERE id = $2\",\n  \"params\": [\n    true,\n    36\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 2 - Transferencias entre Cuentas",
+      "item": [
+        {
+          "name": "Cuentas de un usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT numero_cuenta, saldo, moneda FROM cuentas WHERE usuario_id = $1\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Desactivar una cuenta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE cuentas SET activa = $1 WHERE id = $2\",\n  \"params\": [\n    false,\n    3\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transferencias pendientes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT cuenta_origen_id, cuenta_destino_id, monto FROM transferencias WHERE estado = $1\",\n  \"params\": [\n    \"pendiente\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Completar una transferencia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE transferencias SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"completada\",\n    4\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 3 - Pagos de Servicios",
+      "item": [
+        {
+          "name": "Facturas vencidas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT proveedor, monto, estado FROM facturas WHERE estado = $1\",\n  \"params\": [\n    \"vencida\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Marcar factura como pagada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE facturas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"pagada\",\n    2\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pagos fallidos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT factura_id, monto, metodo_pago FROM pagos WHERE estado = $1\",\n  \"params\": [\n    \"fallido\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reintentar un pago",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE pagos SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"procesado\",\n    9\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 4 - Onboarding / KYC (usuarios)",
+      "item": [
+        {
+          "name": "Usuarios con KYC pendiente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT nombre, documento_tipo, documento_numero, kyc_estado FROM usuarios WHERE kyc_estado = $1\",\n  \"params\": [\n    \"pendiente\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar KYC de un usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE usuarios SET kyc_estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"verificado\",\n    4\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 5 - Tarjetas",
+      "item": [
+        {
+          "name": "Tarjetas de un usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT tipo, marca, estado FROM tarjetas WHERE usuario_id = $1\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bloquear una tarjeta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE tarjetas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"bloqueada\",\n    2\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 6 - Notificaciones y Alertas",
+      "item": [
+        {
+          "name": "Notificaciones no leidas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT asunto, canal, leido FROM notificaciones WHERE leido = $1\",\n  \"params\": [\n    false\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Marcar notificacion como leida",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE notificaciones SET leido = $1 WHERE id = $2\",\n  \"params\": [\n    true,\n    2\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 7 - Carrito / Items de Orden",
+      "item": [
+        {
+          "name": "Items de una orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT producto, cantidad, subtotal FROM items_orden WHERE orden_id = $1\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cambiar cantidad de un item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE items_orden SET cantidad = $1 WHERE id = $2\",\n  \"params\": [\n    2,\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 8 - Reservas / Turnos",
+      "item": [
+        {
+          "name": "Reservas de un usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT servicio, fecha_hora, estado FROM reservas WHERE usuario_id = $1\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirmar una reserva",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE reservas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"confirmada\",\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 9 - Reportes y Dashboard",
+      "item": [
+        {
+          "name": "Total de movimientos por tipo (usuario)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT tipo_movimiento, SUM(monto) AS total FROM movimientos WHERE usuario_id = $1 GROUP BY tipo_movimiento\",\n  \"params\": [\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Corregir descripcion de un movimiento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE movimientos SET descripcion = $1 WHERE id = $2\",\n  \"params\": [\n    \"Revisado por auditoria\",\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupo 10 - Roles y Permisos",
+      "item": [
+        {
+          "name": "Listar roles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT nombre, descripcion FROM roles WHERE nombre = $1\",\n  \"params\": [\n    \"soporte\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar descripcion de un rol",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE roles SET descripcion = $1 WHERE id = $2\",\n  \"params\": [\n    \"Rol actualizado\",\n    2\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Roles activos asignados",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT usuario_id, role_id, activo FROM usuario_roles WHERE activo = $1\",\n  \"params\": [\n    true\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Revocar un rol asignado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE usuario_roles SET activo = $1 WHERE id = $2\",\n  \"params\": [\n    false,\n    1\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 1 - Autenticacion y Acceso",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.torres@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.torres@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 2 - Transferencias entre Cuentas",
+      "item": [
+        {
+          "name": "Listar cuentas de un usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas?usuarioId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cuentas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener cuenta por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cuentas",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear transferencia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transferencias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": 1,\n  \"cuentaDestinoId\": 2,\n  \"monto\": 150000,\n  \"descripcion\": \"Pago de alquiler\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener transferencia por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transferencias",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 3 - Pagos de Servicios",
+      "item": [
+        {
+          "name": "Listar facturas de un usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?usuarioId=1&estado=pendiente",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "estado",
+                  "value": "pendiente",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener factura por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pagar una factura",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/1/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "1",
+                "pagar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 4 - Registro de Usuario / Onboarding",
+      "item": [
+        {
+          "name": "Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana Torres\",\n  \"email\": \"ana.torres.nueva@example.com\",\n  \"documentoTipo\": \"CI\",\n  \"documentoNumero\": \"4123456\",\n  \"fechaNacimiento\": \"1995-06-12\",\n  \"direccion\": \"Asunción, Paraguay\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener usuario por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar estado KYC",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios/1/kyc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios",
+                "1",
+                "kyc"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kycEstado\": \"verificado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 5 - Tarjetas de Credito/Debito",
+      "item": [
+        {
+          "name": "Listar tarjetas de un usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas?usuarioId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Emitir tarjeta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 1,\n  \"tipo\": \"debito\",\n  \"marca\": \"visa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Bloquear tarjeta",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas/1/bloquear",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas",
+                "1",
+                "bloquear"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Activar tarjeta",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas/1/activar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas",
+                "1",
+                "activar"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 6 - Notificaciones y Alertas",
+      "item": [
+        {
+          "name": "Listar notificaciones no leidas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId=1&leido=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "leido",
+                  "value": "false",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear notificacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 1,\n  \"canal\": \"email\",\n  \"asunto\": \"Alerta de seguridad\",\n  \"mensaje\": \"Nuevo inicio de sesión detectado.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Marcar notificacion como leida",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notificaciones/1/leer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones",
+                "1",
+                "leer"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 7 - Carrito de Compras / E-commerce",
+      "item": [
+        {
+          "name": "Listar ordenes de un usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ordenes?usuarioId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ordenes"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear orden (checkout)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ordenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ordenes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 1,\n  \"items\": [\n    {\n      \"producto\": \"Teclado mecánico\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 250000\n    },\n    {\n      \"producto\": \"Mouse inalámbrico\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 80000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener orden por id (con items)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ordenes/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ordenes",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 8 - Reservas / Turnos",
+      "item": [
+        {
+          "name": "Listar reservas de un usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas?usuarioId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear reserva",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 1,\n  \"servicio\": \"Consulta general\",\n  \"fechaHora\": \"2026-09-01T14:30:00-04:00\",\n  \"notas\": \"Primera visita\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Confirmar reserva",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1/confirmar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1",
+                "confirmar"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancelar reserva",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/1/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "1",
+                "cancelar"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 9 - Reportes y Dashboard",
+      "item": [
+        {
+          "name": "Movimientos agrupados por tipo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reportes/movimientos?usuarioId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reportes",
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resumen de movimientos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reportes/resumen?usuarioId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reportes",
+                "resumen"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "REST - Grupo 10 - Roles y Permisos",
+      "item": [
+        {
+          "name": "Listar roles disponibles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar roles activos de un usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios/1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios",
+                "1",
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Asignar rol a usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios/1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios",
+                "1",
+                "roles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revocar rol de usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios/1/roles/2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios",
+                "1",
+                "roles",
+                "2"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "E2E - Flujos con validacion SQL",
+      "description": "Plantilla de automatizacion end-to-end con 2 tecnicas reusables: (1) un helper `utils.bodySqlRest(sql, params)` declarado UNA sola vez en el Pre-request Script de la COLECCION (icono de la coleccion > pestaña Scripts > Pre-request script) para no repetir el mismo pm.sendRequest en cada item; (2) SOLO los campos del body de 'Crear transferencia' que varian entre casos son `{{variable}}` (cuentaOrigenId, cuentaDestinoId, monto, descripcion) -- el resto del JSON queda igual de legible que cualquier body fijo. Ese mismo Pre-request Script de la coleccion resetea esas 4 variables a su valor por defecto ANTES DE CADA request; el item que necesita un caso distinto sobreescribe SOLO el campo que le interesa en su propio Pre-request Script, sin tocar ni clonar el body completo. Cada request usa su propio Pre-request Script para validar el estado previo en la BD (via /api/v1/sql/select, solo lectura) y su Tests Script (post-response) para volver a consultar la BD y confirmar que el INSERT/UPDATE (o el rechazo) quedo realmente reflejado, no solo que el endpoint respondio bien. No agrega variables de entorno: reutiliza {{baseUrl}}/{{apiKey}} y usa `pm.variables` efimeras para el resto. Usa los ids de scripts/seed-data.sql, asi que corre igual despues de un `npm run db:seed` limpio. Copien este patron para automatizar los demas endpoints del curso.",
+      "item": [
+        {
+          "name": "Crear transferencia (INSERT + validacion SQL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{monto}},\n  \"descripcion\": \"{{descripcion}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transferencias"
+              ]
+            },
+            "description": "Caso feliz. El body usa los valores por defecto que puso el Pre-request Script de la COLECCION (cuentaOrigenId=1, cuentaDestinoId=2, monto=25000) -- este item no necesita sobreescribir nada. Pre-request: confirma que las cuentas 1 y 2 (seed) existen y estan activas. Post-request: relee la fila insertada y valida estado='pendiente'."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Este item usa los valores por defecto (cuentaOrigenId/cuentaDestinoId/",
+                  "// monto/descripcion) que el Pre-request Script DE LA COLECCION ya puso",
+                  "// en las collection variables antes de llegar aca -- no hace falta",
+                  "// sobreescribir nada para el caso feliz.",
+                  "",
+                  "// Valida que las cuentas involucradas existan y esten activas antes",
+                  "// de mandar el POST, usando el helper utils.bodySqlRest (tambien",
+                  "// declarado en el Pre-request Script de la coleccion).",
+                  "const cuentaOrigenId = Number(pm.collectionVariables.get(\"cuentaOrigenId\"));",
+                  "const cuentaDestinoId = Number(pm.collectionVariables.get(\"cuentaDestinoId\"));",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT id, activa FROM cuentas WHERE id IN ($1, $2)\",",
+                  "  [cuentaOrigenId, cuentaDestinoId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  const rows = res.json().data || [];",
+                  "  const origen = rows.find((r) => r.id === cuentaOrigenId);",
+                  "  const destino = rows.find((r) => r.id === cuentaDestinoId);",
+                  "  console.log(\"Cuenta origen activa?\", origen && origen.activa);",
+                  "  console.log(\"Cuenta destino activa?\", destino && destino.activa);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 Created\", () => {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"La respuesta trae la transferencia insertada con estado pendiente\", () => {",
+                  "  pm.expect(body).to.have.property(\"data\");",
+                  "  pm.expect(body.data).to.have.property(\"id\");",
+                  "  pm.expect(body.data.estado).to.eql(\"pendiente\");",
+                  "});",
+                  "",
+                  "const transferenciaId = body.data.id;",
+                  "",
+                  "// Post-request: vuelve a consultar la BD (mismo helper utils.bodySqlRest)",
+                  "// para confirmar que el INSERT realmente quedo persistido.",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT id, cuenta_origen_id, cuenta_destino_id, estado FROM transferencias WHERE id = $1\",",
+                  "  [transferenciaId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD confirma la fila insertada con estado 'pendiente'\", () => {",
+                  "    if (err) throw err;",
+                  "    const row = res.json().data[0];",
+                  "    pm.expect(row, \"no se encontro la transferencia en la BD\").to.not.be.undefined;",
+                  "    pm.expect(row.estado).to.eql(\"pendiente\");",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear transferencia - monto invalido (validacion negativa)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{monto}},\n  \"descripcion\": \"{{descripcion}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transferencias"
+              ]
+            },
+            "description": "Caso negativo: el mismo body que el caso feliz, pero el Pre-request Script sobreescribe SOLO la collection variable `monto` a -500. Zod (monto: positive()) lo rechaza con 400 antes de tocar la BD. Post-request confirma con un COUNT(*) que no se inserto ninguna fila."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Sobreescribe SOLO 'monto' (las demas variables quedan en su default,",
+                  "// puesto por el Pre-request Script de la COLECCION) para armar el caso",
+                  "// negativo: un monto negativo debe ser rechazado por Zod",
+                  "// (monto: positive()) antes de tocar la BD -- ver",
+                  "// app/api/v1/transferencias/route.ts. No hace falta clonar ni tocar",
+                  "// el resto del body.",
+                  "pm.collectionVariables.set(\"monto\", -500);",
+                  "",
+                  "// Guarda cuantas transferencias hay ANTES del intento para comparar",
+                  "// despues del rechazo y confirmar que no se inserto nada.",
+                  "const request = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  pm.variables.set(\"totalAntes\", res.json().data[0].total);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400 Bad Request (monto invalido)\", () => {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "// Post-request: confirma que la validacion realmente freno el INSERT --",
+                  "// el conteo de filas en 'transferencias' no debe haber cambiado.",
+                  "const request = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD no registro ninguna fila nueva\", () => {",
+                  "    if (err) throw err;",
+                  "    const totalDespues = res.json().data[0].total;",
+                  "    pm.expect(Number(totalDespues)).to.eql(Number(pm.variables.get(\"totalAntes\")));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear transferencia - cuenta origen inexistente (validacion negativa)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuentaOrigenId\": {{cuentaOrigenId}},\n  \"cuentaDestinoId\": {{cuentaDestinoId}},\n  \"monto\": {{monto}},\n  \"descripcion\": \"{{descripcion}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transferencias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transferencias"
+              ]
+            },
+            "description": "Caso negativo: el mismo body que el caso feliz, pero el Pre-request Script sobreescribe SOLO `cuentaOrigenId` a un id inexistente. Pasa Zod (es un entero positivo) pero rompe la foreign key al insertar (Postgres 23503 -> 400). Post-request confirma con un COUNT(*) que no se inserto nada."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Sobreescribe SOLO 'cuentaOrigenId' a un id que NO existe en el seed --",
+                  "// pasa la validacion de Zod (es un entero positivo) pero rompe la",
+                  "// foreign key al insertar (Postgres 23503), que apiRoute() mapea a",
+                  "// 400 VALIDATION_ERROR. Las demas variables quedan en su default.",
+                  "pm.collectionVariables.set(\"cuentaOrigenId\", 999999);",
+                  "",
+                  "const request = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  pm.variables.set(\"totalAntes\", res.json().data[0].total);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400 Bad Request (cuenta origen inexistente)\", () => {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const request = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM transferencias\");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD no registro ninguna fila nueva (fallo la FK)\", () => {",
+                  "    if (err) throw err;",
+                  "    const totalDespues = res.json().data[0].total;",
+                  "    pm.expect(Number(totalDespues)).to.eql(Number(pm.variables.get(\"totalAntes\")));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pagar factura (UPDATE transaccional + validacion SQL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/3/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "3",
+                "pagar"
+              ]
+            },
+            "description": "UPDATE via endpoint de accion. Pre-request: confirma que la factura 3 (seed, Tigo) todavia no esta 'pagada'. Post-request: relee facturas + pagos y valida que el estado y el pago quedaron persistidos."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Pre-request: confirma que la factura todavia no esta pagada.",
+                  "// Si ya esta 'pagada', /pagar responde 404 (evita doble pago) y el",
+                  "// flujo fallaria \"sin motivo aparente\" si no se valida esto antes.",
+                  "const facturaId = 3;",
+                  "pm.variables.set(\"facturaId\", facturaId);",
+                  "",
+                  "const request = utils.bodySqlRest(\"SELECT id, estado FROM facturas WHERE id = $1\", [facturaId]);",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  const row = res.json().data[0];",
+                  "  console.log(\"Estado de la factura antes de pagar:\", row && row.estado);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"La respuesta trae la factura pagada y el pago generado\", () => {",
+                  "  pm.expect(body.data.factura.estado).to.eql(\"pagada\");",
+                  "  pm.expect(body.data.pago).to.have.property(\"id\");",
+                  "});",
+                  "",
+                  "const facturaId = pm.variables.get(\"facturaId\");",
+                  "",
+                  "// Post-request: confirma en la BD que la factura quedo 'pagada' Y que",
+                  "// se genero la fila en 'pagos' (la operacion es transaccional, ver",
+                  "// app/api/v1/facturas/[id]/pagar/route.ts).",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT f.estado AS factura_estado, p.estado AS pago_estado FROM facturas f JOIN pagos p ON p.factura_id = f.id WHERE f.id = $1 ORDER BY p.id DESC LIMIT 1\",",
+                  "  [facturaId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD confirma factura pagada + pago registrado\", () => {",
+                  "    if (err) throw err;",
+                  "    const row = res.json().data[0];",
+                  "    pm.expect(row, \"no se encontro el pago en la BD\").to.not.be.undefined;",
+                  "    pm.expect(row.factura_estado).to.eql(\"pagada\");",
+                  "    pm.expect(row.pago_estado).to.eql(\"procesado\");",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revocar rol de usuario (soft-delete + validacion SQL)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios/1/roles/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios",
+                "1",
+                "roles",
+                "1"
+              ]
+            },
+            "description": "Soft-delete (UPDATE activo=false, qa_api no tiene grant de DELETE). Pre-request: confirma que el usuario 1 tiene el rol 1 activo (seed). Post-request: relee la fila y valida activo=false, en vez de esperar un 404."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Pre-request: confirma que el usuario tiene el rol activo antes de revocarlo.",
+                  "const usuarioId = 1;",
+                  "const roleId = 1;",
+                  "pm.variables.set(\"usuarioId\", usuarioId);",
+                  "pm.variables.set(\"roleId\", roleId);",
+                  "",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT usuario_id, role_id, activo FROM usuario_roles WHERE usuario_id = $1 AND role_id = $2\",",
+                  "  [usuarioId, roleId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  const row = res.json().data[0];",
+                  "  console.log(\"Asignacion antes de revocar:\", row);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 No Content\", () => {",
+                  "  pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "const usuarioId = pm.variables.get(\"usuarioId\");",
+                  "const roleId = pm.variables.get(\"roleId\");",
+                  "",
+                  "// qa_api no tiene grant de DELETE (ver CLAUDE.md): revocar un rol es un",
+                  "// soft-delete (UPDATE activo = false), la fila sigue existiendo en la BD.",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT activo FROM usuario_roles WHERE usuario_id = $1 AND role_id = $2\",",
+                  "  [usuarioId, roleId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD confirma soft-delete: activo = false (la fila no se borro)\", () => {",
+                  "    if (err) throw err;",
+                  "    const row = res.json().data[0];",
+                  "    pm.expect(row, \"no se encontro la asignacion en la BD\").to.not.be.undefined;",
+                  "    pm.expect(row.activo).to.eql(false);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Docs",
+      "item": [
+        {
+          "name": "OpenAPI spec (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "docs"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

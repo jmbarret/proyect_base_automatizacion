@@ -1,0 +1,86 @@
+{
+  "collection": {
+    "info": {
+      "name": "Aiquaa Myths API",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    }
+  },
+  "run": {
+    "stats": {
+      "requests":   { "total": 4, "failed": 0 },
+      "assertions": { "total": 10, "failed": 2 }
+    },
+    "timings": { "started": 0, "completed": 1842 },
+    "executions": [
+      {
+        "item": { "name": "Get All Myths" },
+        "request": {
+          "method": "GET",
+          "url": { "raw": "http://localhost:5000/myths" }
+        },
+        "response": {
+          "code": 200,
+          "responseTime": 312,
+          "body": "[{\"id\":\"abc123\",\"name\":\"Jasy Jatere\",\"originRegion\":\"Paraguay\",\"category\":0,\"dangerLevel\":1}]"
+        },
+        "assertions": [
+          { "assertion": "status is 200" },
+          { "assertion": "body is array" },
+          { "assertion": "response time < 500ms" }
+        ]
+      },
+      {
+        "item": { "name": "Create Myth" },
+        "request": {
+          "method": "POST",
+          "url": { "raw": "http://localhost:5000/myths" }
+        },
+        "response": {
+          "code": 201,
+          "responseTime": 187,
+          "body": "{\"id\":\"def456\",\"name\":\"Pombero\",\"originRegion\":\"Paraguay\",\"era\":0,\"shortSummary\":\"Dueno del monte\",\"category\":1,\"dangerLevel\":3}"
+        },
+        "assertions": [
+          { "assertion": "status is 201" },
+          { "assertion": "body has id" },
+          { "assertion": "id saved to environment" }
+        ]
+      },
+      {
+        "item": { "name": "Get Myth By Id" },
+        "request": {
+          "method": "GET",
+          "url": { "raw": "http://localhost:5000/myths/def456" }
+        },
+        "response": {
+          "code": 200,
+          "responseTime": 95,
+          "body": "{\"id\":\"def456\",\"name\":\"Pombero\",\"originRegion\":\"Paraguay\"}"
+        },
+        "assertions": [
+          { "assertion": "status is 200" },
+          { "assertion": "name matches created myth",
+            "error": { "name": "AssertionError", "message": "expected 'Pombero' to equal 'El Pombero'" }
+          }
+        ]
+      },
+      {
+        "item": { "name": "Delete Myth" },
+        "request": {
+          "method": "DELETE",
+          "url": { "raw": "http://localhost:5000/myths/def456" }
+        },
+        "response": {
+          "code": 404,
+          "responseTime": 58,
+          "body": "{\"error\":\"Myth not found\",\"id\":\"def456\"}"
+        },
+        "assertions": [
+          { "assertion": "status is 204",
+            "error": { "name": "AssertionError", "message": "expected 404 to equal 204" }
+          }
+        ]
+      }
+    ]
+  }
+}

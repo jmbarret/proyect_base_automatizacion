@@ -1,0 +1,60 @@
+# Y_EXAMPLE_BDD_github.yml
+# Cucumber + Playwright BDD tests — GitHub Actions
+# Generado por skill bdd · aiquaa.com
+
+name: bdd-tests
+
+on:
+  push:
+    branches: [main, develop, 'grupo-*/**']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  bdd:
+    runs-on: ubuntu-latest
+    env:
+      SANDBOX_API_BASE_URL: ${{ vars.SANDBOX_API_BASE_URL }}
+      SANDBOX_API_KEY: ${{ secrets.SANDBOX_API_KEY }}
+      SANDBOX_WEB_BASE_URL: ${{ vars.SANDBOX_WEB_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar navegadores Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Crear directorio de resultados
+        run: mkdir -p results
+
+      - name: Correr suite smoke (PR)
+        if: github.event_name == 'pull_request'
+        run: npx cucumber-js --tags "@smoke"
+        continue-on-error: true
+
+      - name: Correr suite completa (main/develop)
+        if: github.event_name == 'push'
+        run: npx cucumber-js
+        continue-on-error: true
+
+      - name: Generar informe PDF
+        if: always()
+        run: |
+          pip install reportlab --quiet
+          python reporter/bdd_report.py \
+            --results results/cucumber-report.json \
+            --output results/INFORME_BDD.pdf \
+            --grupo "${{ vars.GRUPO_NOMBRE }}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bdd-results
+          path: results/

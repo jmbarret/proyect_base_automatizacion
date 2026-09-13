@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Grupo 01 - Autenticacion y Acceso (Semana 03)" tests="10" time="2.728">
+  <testsuite name="00 - Preparacion y Validacion de Datos (SQL) / SQL - Validar usuario activo (precondicion)" id="7cfcb4be-b0a1-4e75-91de-e657387496c0" timestamp="2026-08-29T18:45:27.707Z" tests="3" failures="0" errors="0" time="0.469">
+    <testcase name="Status code es 200 - Consulta SQL ejecutada" time="0.469" classname="00PreparacionYValidacionDeDatosSqlSqlValidarUsuarioActivoPrecondicion"/>
+    <testcase name="Esquema: la respuesta trae data como arreglo" time="0.469" classname="00PreparacionYValidacionDeDatosSqlSqlValidarUsuarioActivoPrecondicion"/>
+    <testcase name="Validacion BD: el usuario de prueba existe y esta activo" time="0.469" classname="00PreparacionYValidacionDeDatosSqlSqlValidarUsuarioActivoPrecondicion"/>
+  </testsuite>
+  <testsuite name="00 - Preparacion y Validacion de Datos (SQL) / SQL - Sesiones previas del usuario (historial)" id="056f42ef-4cb2-4284-932f-5eccd0c405e0" timestamp="2026-08-29T18:45:27.707Z" tests="3" failures="0" errors="0" time="0.276">
+    <testcase name="Status code es 200 - Historial de sesiones" time="0.276" classname="00PreparacionYValidacionDeDatosSqlSqlSesionesPreviasDelUsuarioHistorial"/>
+    <testcase name="Esquema: arreglo de sesiones previas" time="0.276" classname="00PreparacionYValidacionDeDatosSqlSqlSesionesPreviasDelUsuarioHistorial"/>
+    <testcase name="Tiempo de respuesta &lt; 3000 ms" time="0.276" classname="00PreparacionYValidacionDeDatosSqlSqlSesionesPreviasDelUsuarioHistorial"/>
+  </testsuite>
+  <testsuite name="01 - Login / 01 - Login exitoso (Happy Path)" id="d9b30adc-7b45-436c-bbbc-b7ae319509c5" timestamp="2026-08-29T18:45:27.707Z" tests="4" failures="0" errors="0" time="0.264">
+    <testcase name="Status code es 200 - Login exitoso" time="0.264" classname="01Login01LoginExitosoHappyPath"/>
+    <testcase name="Tiempo de respuesta &lt; 3000 ms" time="0.264" classname="01Login01LoginExitosoHappyPath"/>
+    <testcase name="Esquema JSON: data con id, email y activo" time="0.264" classname="01Login01LoginExitosoHappyPath"/>
+    <testcase name="BD: se inserto una sesion de login para el usuario" time="0.264" classname="01Login01LoginExitosoHappyPath"/>
+  </testsuite>
+  <testsuite name="02 - Logout / 02 - Logout exitoso (Happy Path)" id="67a94778-66ac-46bd-947d-d911c058138a" timestamp="2026-08-29T18:45:27.707Z" tests="4" failures="0" errors="0" time="0.259">
+    <testcase name="Status code es 200 - Logout exitoso" time="0.259" classname="02Logout02LogoutExitosoHappyPath"/>
+    <testcase name="Tiempo de respuesta &lt; 3000 ms" time="0.259" classname="02Logout02LogoutExitosoHappyPath"/>
+    <testcase name="Esquema JSON: data con id y usuario_id" time="0.259" classname="02Logout02LogoutExitosoHappyPath"/>
+    <testcase name="BD: se inserto una sesion de logout para el usuario" time="0.259" classname="02Logout02LogoutExitosoHappyPath"/>
+  </testsuite>
+  <testsuite name="03 - Casos Negativos y de Acceso / 03a - Login con correo no registrado (400)" id="c3b38d40-64e9-4c40-9574-dbf5b09b2635" timestamp="2026-08-29T18:45:27.707Z" tests="3" failures="0" errors="0" time="0.255">
+    <testcase name="Status code es 400 - Credenciales invalidas" time="0.255" classname="03CasosNegativosYDeAcceso03ALoginConCorreoNoRegistrado400"/>
+    <testcase name="Esquema JSON: error con codigo VALIDATION_ERROR" time="0.255" classname="03CasosNegativosYDeAcceso03ALoginConCorreoNoRegistrado400"/>
+    <testcase name="Tiempo de respuesta &lt; 3000 ms" time="0.255" classname="03CasosNegativosYDeAcceso03ALoginConCorreoNoRegistrado400"/>
+  </testsuite>
+  <testsuite name="03 - Casos Negativos y de Acceso / 03b - Login con usuario inactivo (400)" id="4c4be7d4-ed6f-4c82-96ca-cb0aa8593696" timestamp="2026-08-29T18:45:27.707Z" tests="2" failures="0" errors="0" time="0.253">
+    <testcase name="Status code es 400 - Usuario inactivo rechazado" time="0.253" classname="03CasosNegativosYDeAcceso03BLoginConUsuarioInactivo400"/>
+    <testcase name="Esquema JSON: error con codigo VALIDATION_ERROR" time="0.253" classname="03CasosNegativosYDeAcceso03BLoginConUsuarioInactivo400"/>
+  </testsuite>
+  <testsuite name="03 - Casos Negativos y de Acceso / 03c - Recuperacion con correo inexistente (404)" id="507999cb-f79d-4ef7-a85a-3b5f7606b899" timestamp="2026-08-29T18:45:27.707Z" tests="2" failures="0" errors="0" time="0.252">
+    <testcase name="Status code es 404 - Correo no encontrado" time="0.252" classname="03CasosNegativosYDeAcceso03CRecuperacionConCorreoInexistente404"/>
+    <testcase name="Esquema JSON: error con codigo NOT_FOUND" time="0.252" classname="03CasosNegativosYDeAcceso03CRecuperacionConCorreoInexistente404"/>
+  </testsuite>
+  <testsuite name="03 - Casos Negativos y de Acceso / 03d - Login sin API key (401)" id="f61837f0-549f-4a21-aedf-02777fec641c" timestamp="2026-08-29T18:45:27.707Z" tests="2" failures="0" errors="0" time="0.185">
+    <testcase name="Status code es 401 - API key ausente" time="0.185" classname="03CasosNegativosYDeAcceso03DLoginSinApiKey401"/>
+    <testcase name="Tiempo de respuesta &lt; 3000 ms" time="0.185" classname="03CasosNegativosYDeAcceso03DLoginSinApiKey401"/>
+  </testsuite>
+  <testsuite name="04 - Sesiones (POST /api/v1/sesiones) - E2E con SQL / 04a - Crear sesion (Happy Path, E2E SQL)" id="5926c464-34f1-4b5d-965e-891eb0ce6de4" timestamp="2026-08-29T18:45:27.707Z" tests="5" failures="0" errors="0" time="0.258">
+    <testcase name="Precondicion BD: el usuario destino existe" time="0.258" classname="04SesionesPostApiV1SesionesE2EConSql04ACrearSesionHappyPathE2ESql"/>
+    <testcase name="Status code es 201 - Sesion creada" time="0.258" classname="04SesionesPostApiV1SesionesE2EConSql04ACrearSesionHappyPathE2ESql"/>
+    <testcase name="Tiempo de respuesta &lt; 3000 ms" time="0.258" classname="04SesionesPostApiV1SesionesE2EConSql04ACrearSesionHappyPathE2ESql"/>
+    <testcase name="Esquema JSON: data con id, usuario_id, tipo_evento, exitoso" time="0.258" classname="04SesionesPostApiV1SesionesE2EConSql04ACrearSesionHappyPathE2ESql"/>
+    <testcase name="BD: se inserto la sesion (COUNT aumento)" time="0.258" classname="04SesionesPostApiV1SesionesE2EConSql04ACrearSesionHappyPathE2ESql"/>
+  </testsuite>
+  <testsuite name="04 - Sesiones (POST /api/v1/sesiones) - E2E con SQL / 04b - Crear sesion con usuario inexistente (400, BD sin cambios)" id="7f363e9c-3508-43a0-8b5f-8221ac2675c6" timestamp="2026-08-29T18:45:27.707Z" tests="3" failures="0" errors="0" time="0.257">
+    <testcase name="Status code es 400 - FK invalida rechazada" time="0.257" classname="04SesionesPostApiV1SesionesE2EConSql04BCrearSesionConUsuarioInexistente400BdSinCambios"/>
+    <testcase name="Esquema JSON: error con codigo VALIDATION_ERROR" time="0.257" classname="04SesionesPostApiV1SesionesE2EConSql04BCrearSesionConUsuarioInexistente400BdSinCambios"/>
+    <testcase name="BD: la base NO cambio (COUNT sin modificacion)" time="0.257" classname="04SesionesPostApiV1SesionesE2EConSql04BCrearSesionConUsuarioInexistente400BdSinCambios"/>
+  </testsuite>
+</testsuites>

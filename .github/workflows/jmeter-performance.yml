@@ -1,0 +1,143 @@
+name: JMeter Performance - Curso Automatizacion CIT (con informe PDF)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "tests/performance/**"
+      - ".github/workflows/jmeter-performance.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "tests/performance/**"
+      - ".github/workflows/jmeter-performance.yml"
+  workflow_dispatch:
+    inputs:
+      threads:
+        description: "Usuarios concurrentes (threads)"
+        required: false
+        default: "3"
+      loops:
+        description: "Iteraciones por thread"
+        required: false
+        default: "20"
+      monitoring_dashboard_url:
+        description: >-
+          URL publica de un dashboard de monitoreo (Grafana, etc.) a capturar como
+          evidencia post-ejecucion; dejar vacio para omitir la captura.
+        required: false
+        default: https://purplespinach239.grafana.net/public-dashboards/ce95c3fa413048d3a79d3c6fc60de958
+
+permissions:
+  contents: read
+
+env:
+  JMETER_VERSION: 5.6.3
+  RESULTS_DIR: test-results/performance
+
+jobs:
+  performance:
+    name: JMeter + informe PDF
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Java (requerido por JMeter)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Instalar JMeter
+        run: |
+          curl --fail --location --silent --show-error \
+            "https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz" -o jmeter.tgz
+          tar -xzf jmeter.tgz
+
+      - name: Ejecutar plan de pruebas headless
+        # Se usa la variante .ci.jmx: identica al plan del curso pero con rutas
+        # relativas, ya que el plan original apunta a Z:\Jmeter (solo Windows local).
+        run: |
+          mkdir -p "${RESULTS_DIR}/dashboard"
+          "apache-jmeter-${JMETER_VERSION}/bin/jmeter" -n \
+            -t tests/performance/plans/Curso_Automatizacion_CIT_v1.ci.jmx \
+            -l "${RESULTS_DIR}/R_CURSO_CIT.jtl" \
+            -e -o "${RESULTS_DIR}/dashboard" \
+            -JcsvPath=tests/performance/data/datos_dinamicos.csv \
+            -JrunId="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+      - name: Configurar Python (captura de monitoreo)
+        if: ${{ inputs.monitoring_dashboard_url != '' }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Capturar evidencia del dashboard de monitoreo
+        # Chrome viene preinstalado en los runners ubuntu-latest, y Selenium Manager
+        # resuelve el driver por su cuenta. La espera larga cubre el arranque en frio
+        # de un stack de Grafana Cloud, que duerme cuando esta inactivo.
+        if: ${{ inputs.monitoring_dashboard_url != '' }}
+        run: |
+          pip install selenium
+          mkdir -p "${RESULTS_DIR}/evidence"
+          CAPTURE=$(npm pack aiquaa-performance-mcp-server --pack-destination . --silent)
+          tar -xzf "$CAPTURE" package/dist/monitoring/python/capture_dashboard.py
+          python3 package/dist/monitoring/python/capture_dashboard.py \
+            --url "${{ inputs.monitoring_dashboard_url }}" \
+            --output "${RESULTS_DIR}/evidence/EVIDENCIA_MONITOREO.png" \
+            --wait-seconds 8 \
+            --timeout-seconds 180
+
+      - name: Generar informe PDF
+        if: always()
+        run: |
+          EVIDENCE_ARGS=()
+          if [ -f "${RESULTS_DIR}/evidence/EVIDENCIA_MONITOREO.png" ]; then
+            EVIDENCE_ARGS=(--evidence-image "${RESULTS_DIR}/evidence/EVIDENCIA_MONITOREO.png" \
+              --evidence-label "Dashboard de monitoreo" \
+              --evidence-url "${{ inputs.monitoring_dashboard_url }}")
+          fi
+          # El generador sale con codigo 1 cuando el veredicto es FAIL. Aca solo
+          # interesa producir el PDF; el gate del SLA es "Evaluar umbrales".
+          set +e
+          npx -y aiquaa-performance-mcp-server --report \
+            "${RESULTS_DIR}/R_CURSO_CIT.jtl" \
+            tests/performance/thresholds/thresholds.json \
+            "${RESULTS_DIR}/INFORME_PERF_CURSO_CIT.pdf" \
+            --api-name "AIQUAA Sandbox API (ordenes / facturas)" \
+            --plan tests/performance/plans/Curso_Automatizacion_CIT_v1.ci.jmx \
+            --test-type carga \
+            --threads "${{ inputs.threads || '3' }}" \
+            --loops "${{ inputs.loops || '20' }}" \
+            --author "${{ github.triggering_actor }}" \
+            --api-version "${{ github.sha }}" \
+            --repo-url "${{ github.server_url }}/${{ github.repository }}" \
+            "${EVIDENCE_ARGS[@]}"
+          status=$?
+          set -e
+          if [ ! -f "${RESULTS_DIR}/INFORME_PERF_CURSO_CIT.pdf" ]; then
+            echo "::error::No se genero el informe PDF (exit ${status})."
+            exit "${status}"
+          fi
+
+      - name: Evaluar umbrales (SLA)
+        # Corre despues del informe para que el PDF se publique aun si el SLA falla.
+        run: |
+          npx -y aiquaa-performance-mcp-server --evaluate \
+            "${RESULTS_DIR}/R_CURSO_CIT.jtl" \
+            tests/performance/thresholds/thresholds.json
+
+      - name: Subir resultados e informe
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: jmeter-curso-cit
+          path: test-results/performance
+          retention-days: 7

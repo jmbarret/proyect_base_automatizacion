@@ -1,0 +1,28 @@
+name: CI — postman-newman-skill
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate collection JSON
+        run: python3 -c "import json; json.load(open('examples/C_EXAMPLE_API.json'))" && echo "C_ OK"
+
+      - name: Validate environment JSON
+        run: python3 -c "import json; json.load(open('examples/E_EXAMPLE_API.json'))" && echo "E_ OK"
+
+      - name: Check reporter dependencies
+        run: pip install -r reporter/requirements.txt --quiet && echo "deps OK"
+
+      - name: Smoke test reporter
+        run: |
+          python reporter/newman_report.py \
+            --results examples/sample_results.json \
+            --output /tmp/smoke_test.pdf
+          test -f /tmp/smoke_test.pdf && echo "PDF generado OK"

@@ -1,0 +1,933 @@
+{
+  "info": {
+    "_postman_id": "1dbb5431-6dbe-4446-a1ec-fdd184eef86e",
+    "name": "Grupo 9 - Reportes y Dashboard",
+    "description": "Colección Postman alineada a los escenarios BDD del grupo (Feature: Reportes y Dashboard).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "34767281"
+  },
+  "item": [
+    {
+      "name": "Escenario 1 - Happy Path - Generar reporte financiero",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: Given el usuario esta en el modulo de reportes",
+              "// When solicita generar un reporte financiero",
+              "// Then el sistema debe generar y mostrar el reporte correctamente",
+              "",
+              "pm.test('Status code es 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('El reporte se genera correctamente (estado = generado)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.estado).to.eql('generado');",
+              "});",
+              "",
+              "pm.test('El reporte incluye metricas y graficos', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('metricas');",
+              "    pm.expect(jsonData).to.have.property('graficos');",
+              "});",
+              "",
+              "pm.test('Validar que el nombre del usuario este dentro de la respuesta', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.usuario).to.eql(pm.collectionVariables.get('usuario'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes/financiero?mes={{mes_actual}}&usuario={{usuario}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes",
+            "financiero"
+          ],
+          "query": [
+            {
+              "key": "mes",
+              "value": "{{mes_actual}}"
+            },
+            {
+              "key": "usuario",
+              "value": "{{usuario}}"
+            }
+          ]
+        },
+        "description": "Escenario 1 (happy path): generación correcta del reporte financiero del mes actual."
+      },
+      "response": [
+        {
+          "name": "Escenario 1 - Happy Path - Generar reporte financiero",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reportes/financiero?mes={{mes_actual}}&usuario={{usuario}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "financiero"
+              ],
+              "query": [
+                {
+                  "key": "mes",
+                  "value": "{{mes_actual}}"
+                },
+                {
+                  "key": "usuario",
+                  "value": "{{usuario}}"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Server",
+              "value": "Werkzeug/3.1.8 Python/3.14.6"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 01 Sep 2026 01:34:06 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Content-Length",
+              "value": "522"
+            },
+            {
+              "key": "Connection",
+              "value": "close"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"data\": [\n        {\n            \"mes\": \"2026-08\",\n            \"resumen\": {\n                \"gastos\": 21809.75,\n                \"ingresos\": 81467.08,\n                \"utilidad_neta\": 26437.81\n            }\n        }\n    ],\n    \"estado\": \"generado\",\n    \"graficos\": [\n        {\n            \"tipo\": \"barras\",\n            \"titulo\": \"Ingresos vs Gastos\"\n        },\n        {\n            \"tipo\": \"linea\",\n            \"titulo\": \"Tendencia mensual\"\n        }\n    ],\n    \"mes\": \"2026-08\",\n    \"metricas\": {\n        \"gastos\": 48663.15,\n        \"ingresos\": 58977.3,\n        \"utilidad_neta\": 57593.8\n    },\n    \"usuario\": \"ana.torres@aiquaa.com\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Escenario 2 - Caso Negativo - Reporte sin datos en rango de fechas",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: When aplica un filtro de fechas donde no existen transacciones registradas",
+              "// Then el sistema debe mostrar el mensaje 'No se encontraron datos para el periodo seleccionado'",
+              "",
+              "pm.test('Status code es 200 (respuesta controlada, no error de servidor)', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Se muestra el mensaje de periodo sin datos', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.mensaje).to.eql(pm.collectionVariables.get('mensaje_sin_datos'));",
+              "});",
+              "",
+              "pm.test('El arreglo de datos viene vacio', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data).to.be.an('array').that.is.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes/financiero?fechaInicio={{fecha_sin_datos_inicio}}&fechaFin={{fecha_sin_datos_fin}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes",
+            "financiero"
+          ],
+          "query": [
+            {
+              "key": "fechaInicio",
+              "value": "{{fecha_sin_datos_inicio}}"
+            },
+            {
+              "key": "fechaFin",
+              "value": "{{fecha_sin_datos_fin}}"
+            }
+          ]
+        },
+        "description": "Escenario 2 (caso negativo): filtro de fechas sin transacciones registradas."
+      },
+      "response": [
+        {
+          "name": "Escenario 2 - Caso Negativo - Reporte sin datos en rango de fechas",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reportes/financiero?fechaInicio={{fecha_sin_datos_inicio}}&fechaFin={{fecha_sin_datos_fin}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "financiero"
+              ],
+              "query": [
+                {
+                  "key": "fechaInicio",
+                  "value": "{{fecha_sin_datos_inicio}}"
+                },
+                {
+                  "key": "fechaFin",
+                  "value": "{{fecha_sin_datos_fin}}"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Server",
+              "value": "Werkzeug/3.1.8 Python/3.14.6"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 01 Sep 2026 01:35:12 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Content-Length",
+              "value": "86"
+            },
+            {
+              "key": "Connection",
+              "value": "close"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"data\": [],\n    \"mensaje\": \"No se encontraron datos para el periodo seleccionado\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Escenario 3 - Roles - Indicadores visibles segun rol",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: Given que el usuario tiene el rol '<rol>'",
+              "// When accede al panel de reportes financieros",
+              "// Then debe visualizar unicamente los indicadores '<indicadores_visibles>'",
+              "",
+              "pm.test('Status code es 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Los indicadores retornados coinciden con los esperados para el rol', function () {",
+              "    var jsonData = pm.response.json();",
+              "    var esperados = JSON.parse(pm.collectionVariables.get('indicadores_esperados_rol'));",
+              "    pm.expect(jsonData.indicadores.sort()).to.eql(esperados.sort());",
+              "});",
+              "",
+              "pm.test('No se exponen indicadores fuera del rol (control de acceso)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.indicadores).to.not.include.members(['configuracion_admin']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes/indicadores?rol={{rol}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes",
+            "indicadores"
+          ],
+          "query": [
+            {
+              "key": "rol",
+              "value": "{{rol}}"
+            }
+          ]
+        },
+        "description": "Escenario 3 (roles): visualizacion de indicadores segun el rol del usuario autenticado."
+      },
+      "response": [
+        {
+          "name": "Escenario 3 - Roles - Indicadores visibles segun rol",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reportes/indicadores?rol={{rol}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "indicadores"
+              ],
+              "query": [
+                {
+                  "key": "rol",
+                  "value": "{{rol}}"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Server",
+              "value": "Werkzeug/3.1.8 Python/3.14.6"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 01 Sep 2026 01:34:21 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Content-Length",
+              "value": "77"
+            },
+            {
+              "key": "Connection",
+              "value": "close"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"indicadores\": [\n        \"ingresos\",\n        \"gastos\"\n    ],\n    \"rol\": \"analista\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Escenario 4 - Comparativa entre dos periodos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: When selecciona dos periodos y solicita compararlos",
+              "// Then el sistema debe mostrar un reporte comparativo con las diferencias porcentuales",
+              "",
+              "pm.test('Status code es 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('La respuesta incluye diferencias porcentuales', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('diferenciasPorcentuales');",
+              "    pm.expect(jsonData.diferenciasPorcentuales).to.be.an('array').that.is.not.empty;",
+              "});",
+              "",
+              "pm.test('Los periodos comparados corresponden a los solicitados', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.periodo1).to.eql(pm.collectionVariables.get('periodo1'));",
+              "    pm.expect(jsonData.periodo2).to.eql(pm.collectionVariables.get('periodo2'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes/comparativo?periodo1={{periodo1}}&periodo2={{periodo2}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes",
+            "comparativo"
+          ],
+          "query": [
+            {
+              "key": "periodo1",
+              "value": "{{periodo1}}"
+            },
+            {
+              "key": "periodo2",
+              "value": "{{periodo2}}"
+            }
+          ]
+        },
+        "description": "Escenario 4 (comparativa): comparacion de reportes entre dos periodos distintos."
+      },
+      "response": [
+        {
+          "name": "Escenario 4 - Comparativa entre dos periodos",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reportes/comparativo?periodo1={{periodo1}}&periodo2={{periodo2}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "comparativo"
+              ],
+              "query": [
+                {
+                  "key": "periodo1",
+                  "value": "{{periodo1}}"
+                },
+                {
+                  "key": "periodo2",
+                  "value": "{{periodo2}}"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Server",
+              "value": "Werkzeug/3.1.8 Python/3.14.6"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 01 Sep 2026 01:34:28 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Content-Length",
+              "value": "529"
+            },
+            {
+              "key": "Connection",
+              "value": "close"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"diferenciasPorcentuales\": [\n        {\n            \"diferenciaPorcentual\": 22.3,\n            \"indicador\": \"ingresos\",\n            \"valorPeriodo1\": 61235.67,\n            \"valorPeriodo2\": 74891.39\n        },\n        {\n            \"diferenciaPorcentual\": -3.52,\n            \"indicador\": \"gastos\",\n            \"valorPeriodo1\": 93153.47,\n            \"valorPeriodo2\": 89871.55\n        },\n        {\n            \"diferenciaPorcentual\": -24.95,\n            \"indicador\": \"utilidad_neta\",\n            \"valorPeriodo1\": 65972.17,\n            \"valorPeriodo2\": 49514.28\n        }\n    ],\n    \"periodo1\": \"2026-Q1\",\n    \"periodo2\": \"2026-Q2\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Escenario 5 (Claudio) - Positivo - Reporte financiero del mes",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: Cuando consulta el reporte financiero del mes actual",
+              "// Entonces se cargan las metricas y graficos del panel de control",
+              "",
+              "pm.test('Status code es 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Se cargan metricas y graficos del panel de control', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('metricas');",
+              "    pm.expect(jsonData).to.have.property('graficos');",
+              "    pm.expect(jsonData.graficos).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/dashboard/metricas?mes={{mes_actual}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "dashboard",
+            "metricas"
+          ],
+          "query": [
+            {
+              "key": "mes",
+              "value": "{{mes_actual}}"
+            }
+          ]
+        },
+        "description": "Escenario 5: visualizar reporte financiero del mes actual en el panel de control."
+      },
+      "response": [
+        {
+          "name": "Escenario 5 (Claudio) - Positivo - Reporte financiero del mes",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/metricas?mes={{mes_actual}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "metricas"
+              ],
+              "query": [
+                {
+                  "key": "mes",
+                  "value": "{{mes_actual}}"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Server",
+              "value": "Werkzeug/3.1.8 Python/3.14.6"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 01 Sep 2026 01:35:33 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Content-Length",
+              "value": "290"
+            },
+            {
+              "key": "Connection",
+              "value": "close"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"graficos\": [\n        {\n            \"tipo\": \"barras\",\n            \"titulo\": \"Ingresos vs Gastos\"\n        },\n        {\n            \"tipo\": \"linea\",\n            \"titulo\": \"Tendencia mensual\"\n        }\n    ],\n    \"mes\": \"2026-08\",\n    \"metricas\": {\n        \"gastos\": 45480.11,\n        \"ingresos\": 77559.27,\n        \"utilidad_neta\": 50166.85\n    }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Escenario 6 (Claudio) - Negativo - Reporte en anio sin transacciones",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: Cuando filtra el reporte para un anio sin transacciones",
+              "// Entonces se muestra un mensaje de 'Sin datos disponibles'",
+              "",
+              "pm.test('Status code es 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Se muestra el mensaje Sin datos disponibles', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.mensaje).to.eql(pm.collectionVariables.get('mensaje_sin_datos_anio'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes/financiero?anio={{anio_sin_datos}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes",
+            "financiero"
+          ],
+          "query": [
+            {
+              "key": "anio",
+              "value": "{{anio_sin_datos}}"
+            }
+          ]
+        },
+        "description": "Escenario 6: negativo de Claudio Cabrera: consulta de reporte en un periodo (anio) sin datos."
+      },
+      "response": [
+        {
+          "name": "Escenario 6 (Claudio) - Negativo - Reporte en anio sin transacciones",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/reportes/financiero?anio={{anio_sin_datos}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "financiero"
+              ],
+              "query": [
+                {
+                  "key": "anio",
+                  "value": "{{anio_sin_datos}}"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Server",
+              "value": "Werkzeug/3.1.8 Python/3.14.6"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 01 Sep 2026 01:35:40 GMT"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Content-Length",
+              "value": "55"
+            },
+            {
+              "key": "Connection",
+              "value": "close"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"data\": [],\n    \"mensaje\": \"Sin datos disponibles\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Escenario 7 (Claudio) - Edge Case - Rango maximo de 10 anios",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// BDD: Cuando selecciona un rango de fechas de 10 anios",
+              "// Entonces el reporte se genera agrupando los datos sin dar error de tiempo de espera",
+              "",
+              "pm.test('Status code es 200 (sin timeout)', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response time es aceptable para rango extendido (< 5000ms)', function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+              "});",
+              "",
+              "pm.test('Los datos vienen agrupados (agrupado = true)', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.agrupado).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reportes/financiero?fechaInicio={{fecha_inicio_10y}}&fechaFin={{fecha_fin_10y}}&agrupar=true",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reportes",
+            "financiero"
+          ],
+          "query": [
+            {
+              "key": "fechaInicio",
+              "value": "{{fecha_inicio_10y}}"
+            },
+            {
+              "key": "fechaFin",
+              "value": "{{fecha_fin_10y}}"
+            },
+            {
+              "key": "agrupar",
+              "value": "true"
+            }
+          ]
+        },
+        "description": "Escenario 7: filtrar el rango maximo de 10 años sin error de timeout."
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "// Pre-request a nivel de colección: asegura que exista un token de sesión.",
+          "// Si el equipo cuenta con un request de Login, reemplazar este bloque por el uso de esa respuesta.",
+          "if (!pm.collectionVariables.get('token')) {",
+          "    pm.collectionVariables.set('token', 'TOKEN_DE_PRUEBA');",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "// Validación global aplicada a todas las requests",
+          "pm.test('Response time is less than 3000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+          "});",
+          "",
+          "pm.test('Content-Type es application/json', function () {",
+          "    pm.response.to.have.header('Content-Type');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://aiquaa-api.dev.example.com"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "usuario",
+      "value": "ana.torres@aiquaa.com"
+    },
+    {
+      "key": "rol",
+      "value": "analista"
+    },
+    {
+      "key": "indicadores_esperados_rol",
+      "value": "[\"ingresos\",\"gastos\"]"
+    },
+    {
+      "key": "mes_actual",
+      "value": "2026-08"
+    },
+    {
+      "key": "fecha_sin_datos_inicio",
+      "value": "1999-01-01"
+    },
+    {
+      "key": "fecha_sin_datos_fin",
+      "value": "1999-01-31"
+    },
+    {
+      "key": "mensaje_sin_datos",
+      "value": "No se encontraron datos para el periodo seleccionado"
+    },
+    {
+      "key": "periodo1",
+      "value": "2026-Q1"
+    },
+    {
+      "key": "periodo2",
+      "value": "2026-Q2"
+    },
+    {
+      "key": "anio_sin_datos",
+      "value": "2010"
+    },
+    {
+      "key": "mensaje_sin_datos_anio",
+      "value": "Sin datos disponibles"
+    },
+    {
+      "key": "fecha_inicio_10y",
+      "value": "2016-01-01"
+    },
+    {
+      "key": "fecha_fin_10y",
+      "value": "2026-01-01"
+    }
+  ]
+}

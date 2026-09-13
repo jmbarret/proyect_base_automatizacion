@@ -1,0 +1,342 @@
+{
+  "info": {
+    "_postman_id": "a3b8f334-246c-447b-90a8-8b26114da01c",
+    "name": "Grupo 01 - Autenticación y Acceso Gloria Figueredo",
+    "description": "Mapeo de escenarios BDD a APIs de AIQUAA",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "57632332",
+    "_collection_link": "https://go.postman.co/collection/57632332-a3b8f334-246c-447b-90a8-8b26114da01c?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "CP 01 - Login con campos obligatorios vacíos (edge case)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 400 por email obligatorio vacío\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"La respuesta contiene error de validación\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.code).to.eql(\"VALIDATION_ERROR\");",
+              "});",
+              "",
+              "pm.test(\"El mensaje indica solicitud inválida\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.message).to.eql(\"Invalid request.\");",
+              "});",
+              "",
+              "pm.test(\"El detalle menciona el campo email\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.details).to.include(\"email\");",
+              "});",
+              "",
+              "pm.test(\"Tiempo de respuesta menor a 3000 ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+              "});",
+              "pm.sendRequest({",
+              "    url: pm.variables.get(\"baseUrl\") + \"/api/v1/sql/select\",",
+              "    method: \"POST\",",
+              "    header: {",
+              "        \"Content-Type\": \"application/json\",",
+              "        \"x-api-key\": pm.variables.get(\"apiKey\")",
+              "    },",
+              "    body: {",
+              "        mode: \"raw\",",
+              "        raw: JSON.stringify({",
+              "            sql: \"SELECT COUNT(*) AS total FROM qa_training.sesiones WHERE tipo_evento = $1\",",
+              "            params: [\"login\"]",
+              "        })",
+              "    }",
+              "}, function (err, res) {",
+              "",
+              "    pm.test(\"Post-response Gloria: consulta SQL responde 200\", function () {",
+              "        pm.expect(err).to.not.exist;",
+              "        pm.expect(res.code).to.eql(200);",
+              "    });",
+              "",
+              "    if (err || res.code !== 200) {",
+              "        return;",
+              "    }",
+              "",
+              "    const body = res.json();",
+              "    const loginsDespues = parseInt(body.data[0].total, 10);",
+              "",
+              "    pm.collectionVariables.set(\"gloriaLoginsDespues\", loginsDespues);",
+              "",
+              "    const loginsAntes = parseInt(",
+              "    pm.collectionVariables.get(\"gloriaLoginsAntes\"),",
+              "    10",
+              "    );",
+              "",
+              "    pm.test(\"El login inválido no genera un nuevo registro en BD\", function () {",
+              "        pm.expect(loginsDespues).to.eql(loginsAntes);",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set(\"gloriaLoginsAntes\", 0);\r",
+              "\r",
+              "pm.sendRequest({\r",
+              "    url: pm.variables.get(\"baseUrl\") + \"/api/v1/sql/select\",\r",
+              "    method: \"POST\",\r",
+              "    header: {\r",
+              "        \"Content-Type\": \"application/json\",\r",
+              "        \"x-api-key\": pm.variables.get(\"apiKey\")\r",
+              "    },\r",
+              "    body: {\r",
+              "        mode: \"raw\",\r",
+              "        raw: JSON.stringify({\r",
+              "            sql: \"SELECT COUNT(*) AS total FROM qa_training.sesiones WHERE tipo_evento = $1\",\r",
+              "            params: [\"login\"]\r",
+              "        })\r",
+              "    }\r",
+              "}, function (err, res) {\r",
+              "\r",
+              "    pm.test(\"Pre-request Gloria: consulta SQL responde 200\", function () {\r",
+              "        pm.expect(err).to.not.exist;\r",
+              "        pm.expect(res.code).to.eql(200);\r",
+              "    });\r",
+              "\r",
+              "    if (!err && res.code === 200) {\r",
+              "        const json = res.json();\r",
+              "\r",
+              "        pm.collectionVariables.set(\r",
+              "            \"gloriaLoginsAntes\",\r",
+              "            parseInt(json.data[0].total, 10)\r",
+              "        );\r",
+              "    }\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "CP 02 – Login exitoso con correo válido (Happy Path)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200 - Login exitoso\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"La respuesta contiene datos del usuario\", function () {",
+              "    pm.expect(jsonData).to.have.property(\"data\");",
+              "    pm.expect(jsonData.data).to.have.property(\"id\");",
+              "    pm.expect(jsonData.data).to.have.property(\"email\");",
+              "});",
+              "",
+              "pm.test(\"El email de respuesta coincide con el obtenido desde BD\", function () {",
+              "    pm.expect(jsonData.data.email).to.eql(",
+              "        pm.collectionVariables.get(\"gloriaEmailValido\")",
+              "    );",
+              "});",
+              "",
+              "pm.test(\"El usuario está activo\", function () {",
+              "    pm.expect(jsonData.data.activo).to.eql(true);",
+              "});",
+              "",
+              "pm.test(\"Tiempo de respuesta menor a 3000 ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+              "});",
+              "pm.sendRequest({",
+              "    url: pm.variables.get(\"baseUrl\") + \"/api/v1/sql/select\",",
+              "    method: \"POST\",",
+              "    header: {",
+              "        \"Content-Type\": \"application/json\",",
+              "        \"x-api-key\": pm.variables.get(\"apiKey\")",
+              "    },",
+              "    body: {",
+              "        mode: \"raw\",",
+              "        raw: JSON.stringify({",
+              "            sql: \"SELECT COUNT(*) AS total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",",
+              "            params: [",
+              "                parseInt(pm.collectionVariables.get(\"gloriaUsuarioId\"), 10),",
+              "                \"login\"",
+              "            ]",
+              "        })",
+              "    }",
+              "}, function (err, res) {",
+              "",
+              "    pm.test(\"Post-response Gloria: consulta SQL responde 200\", function () {",
+              "        pm.expect(err).to.not.exist;",
+              "        pm.expect(res.code).to.eql(200);",
+              "    });",
+              "",
+              "    if (err || res.code !== 200) {",
+              "        return;",
+              "    }",
+              "",
+              "    const body = res.json();",
+              "    const total = parseInt(body.data[0].total, 10);",
+              "",
+              "    pm.test(\"El login quedó registrado en la base de datos\", function () {",
+              "        pm.expect(total).to.be.above(0);",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.sendRequest({\r",
+              "    url: pm.variables.get(\"baseUrl\") + \"/api/v1/sql/select\",\r",
+              "    method: \"POST\",\r",
+              "    header: {\r",
+              "        \"Content-Type\": \"application/json\",\r",
+              "        \"x-api-key\": pm.variables.get(\"apiKey\")\r",
+              "    },\r",
+              "    body: {\r",
+              "        mode: \"raw\",\r",
+              "        raw: JSON.stringify({\r",
+              "            sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r",
+              "            params: [true]\r",
+              "        })\r",
+              "    }\r",
+              "}, function (err, res) {\r",
+              "\r",
+              "    pm.test(\"Pre-request Gloria: usuario activo obtenido desde BD\", function () {\r",
+              "        pm.expect(err).to.not.exist;\r",
+              "        pm.expect(res.code).to.eql(200);\r",
+              "    });\r",
+              "\r",
+              "    if (err || res.code !== 200) {\r",
+              "        console.error(\"Error consultando usuario activo:\", err);\r",
+              "        return;\r",
+              "    }\r",
+              "\r",
+              "    const body = res.json();\r",
+              "\r",
+              "    if (!body.data || body.data.length === 0) {\r",
+              "        console.error(\"No se encontró usuario activo en BD\");\r",
+              "        return;\r",
+              "    }\r",
+              "\r",
+              "    const usuario = body.data[0];\r",
+              "\r",
+              "    pm.collectionVariables.set(\"gloriaEmailValido\", usuario.email);\r",
+              "    pm.collectionVariables.set(\"gloriaUsuarioId\", usuario.id);\r",
+              "\r",
+              "    console.log(\"Email obtenido desde BD:\", usuario.email);\r",
+              "    console.log(\"Usuario ID obtenido desde BD:\", usuario.id);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{gloriaEmailValido}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "gloriaLoginsAntes",
+      "value": ""
+    },
+    {
+      "key": "gloriaEmailValido",
+      "value": ""
+    },
+    {
+      "key": "gloriaUsuarioId",
+      "value": ""
+    },
+    {
+      "key": "gloriaLoginsDespues",
+      "value": ""
+    }
+  ]
+}

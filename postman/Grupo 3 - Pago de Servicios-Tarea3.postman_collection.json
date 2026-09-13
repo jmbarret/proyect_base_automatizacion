@@ -1,0 +1,1831 @@
+{
+  "info": {
+    "_postman_id": "4241ff08-3e6d-4100-b23c-ab5bac9a352f",
+    "name": "Grupo 3 - Pago de Servicios",
+    "description": "# Tarea 2.0 - Grupal - Coleccion de Postman + Variables + Validaciones",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "27146971"
+  },
+  "item": [
+    {
+      "name": "Consultar SQL Facturas por Servicio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "sbx_demo_f581ca21e68a347288c94d71"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sql\": \"SELECT * FROM facturas WHERE proveedor = '{{Servicio}}'\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "sql",
+            "select"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Listar facturas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Factura de servicio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": 5,\n  \"proveedor\": \"ANDE\",\n  \"numeroFactura\": \"FAC-2026-0015\",\n  \"monto\": 100000,\n  \"fechaVencimiento\": \"2026-09-30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Factura de servicio Telefonia",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno\r\nvar rawUsuarioId = pm.environment.get(\"UsuarioID\");\r\nvar usuarioIdNum = parseInt(rawUsuarioId, 10);\r\n\r\nif (isNaN(usuarioIdNum)) {\r\n    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");\r\n    usuarioIdNum = 1;\r\n}\r\n\r\n// 2. Construir la consulta SQL: factura de Tigo pendiente/vencida con vencimiento hoy\r\nconst queryBody = {\r\n    sql: \"SELECT id FROM facturas WHERE proveedor = $1 AND estado IN ($2, $3) AND fecha_vencimiento = CURRENT_DATE AND usuario_id = $4 LIMIT 1\",\r\n    params: [\"Tigo\", \"pendiente\", \"vencida\", usuarioIdNum]\r\n};\r\n\r\n// 3. Obtener baseUrl y apiKey\r\nvar baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");\r\nvar apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");\r\n\r\n// 4. Ejecutar la peticion SQL previa (con x-api-key)\r\npm.sendRequest({\r\n    url: baseUrl + \"/api/v1/sql/select\",\r\n    method: 'POST',\r\n    header: {\r\n        'Content-Type': 'application/json',\r\n        'x-api-key': apiKey\r\n    },\r\n    body: {\r\n        mode: 'raw',\r\n        raw: JSON.stringify(queryBody)\r\n    }\r\n}, function (err, res) {\r\n    if (err) {\r\n        console.error(\"Error al ejecutar Pre-request SQL:\", err);\r\n        pm.collectionVariables.set(\"ID_tabla\", 0);\r\n        return;\r\n    }\r\n\r\n    var responseData = res.json();\r\n\r\n    if (responseData && responseData.data && responseData.data.length > 0) {\r\n        var rawId = responseData.data[0].id;\r\n        var idNumerico = parseInt(rawId, 10);\r\n\r\n        if (!isNaN(idNumerico)) {\r\n            pm.collectionVariables.set(\"ID_tabla\", idNumerico);\r\n            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);\r\n        } else {\r\n            console.error(\"El id retornado no es interpretable como numero:\", rawId);\r\n            pm.collectionVariables.set(\"ID_tabla\", 0);\r\n        }\r\n    } else {\r\n        console.warn(\"No se encontro una factura de Tigo con vencimiento hoy para el usuario:\", usuarioIdNum);\r\n        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));\r\n        pm.collectionVariables.set(\"ID_tabla\", 0);\r\n    }\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": 1,\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"FAC-TEL-0002\",\n  \"monto\": 65000,\n  \"fechaVencimiento\": \"2026-08-30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener factura por ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas/{{ID}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Modificar Factura por ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"proveedor\": \"ANDE\",\n  \"numeroFactura\": \"FAC-2026-0015\",\n  \"monto\": 100000,\n  \"fechaVencimiento\": \"2026-09-30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID}}",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Vaciar Factura",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID}}",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Pagar Factura",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Pago exitoso de factura de ANDE",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno",
+              "var rawUsuarioId = pm.environment.get(\"UsuarioID\");",
+              "var usuarioIdNum = parseInt(rawUsuarioId, 10);",
+              "",
+              "if (isNaN(usuarioIdNum)) {",
+              "    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");",
+              "    usuarioIdNum = 1;",
+              "}",
+              "",
+              "// 2. Construir la consulta SQL",
+              "const queryBody = {",
+              "    sql: \"SELECT id FROM facturas WHERE proveedor = $1 AND estado IN ($2, $3) AND usuario_id = $4 LIMIT 1\",",
+              "    params: [\"ANDE\", \"pendiente\", \"vencida\", usuarioIdNum]",
+              "};",
+              "",
+              "// 3. Obtener baseUrl y apiKey",
+              "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+              "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+              "",
+              "// 4. Ejecutar la petición SQL previa (con x-api-key)",
+              "pm.sendRequest({",
+              "    url: baseUrl + \"/api/v1/sql/select\",",
+              "    method: 'POST',",
+              "    header: {",
+              "        'Content-Type': 'application/json',",
+              "        'x-api-key': apiKey",
+              "    },",
+              "    body: {",
+              "        mode: 'raw',",
+              "        raw: JSON.stringify(queryBody)",
+              "    }",
+              "}, function (err, res) {",
+              "    if (err) {",
+              "        console.error(\"Error al ejecutar Pre-request SQL:\", err);",
+              "        pm.collectionVariables.set(\"ID_tabla\", 0);",
+              "        return;",
+              "    }",
+              "",
+              "    var responseData = res.json();",
+              "",
+              "    // 5. Validar la respuesta y extraer el ID",
+              "    if (responseData && responseData.data && responseData.data.length > 0) {",
+              "        var rawId = responseData.data[0].id;",
+              "        var idNumerico = parseInt(rawId, 10);",
+              "",
+              "        if (!isNaN(idNumerico)) {",
+              "            pm.collectionVariables.set(\"ID_tabla\", idNumerico);",
+              "            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);",
+              "        } else {",
+              "            console.error(\"El id retornado no es interpretable como número:\", rawId);",
+              "            pm.collectionVariables.set(\"ID_tabla\", 0);",
+              "        }",
+              "    } else {",
+              "        console.warn(\"No se encontraron facturas pendientes/vencidas de ANDE para el usuario:\", usuarioIdNum);",
+              "        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));",
+              "        pm.collectionVariables.set(\"ID_tabla\", 0);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Validar que la API responda200 OK\r",
+              "pm.test(\"Pago confirmado correctamente\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "// Validar que factura cambia a estado pagada\r",
+              "pm.test(\"El estado de la factura se actualizó a pagada\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.factura.estado).to.eql(\"pagada\");\r",
+              "});\r",
+              "\r",
+              "// Validar que el pago fue procesado correctamente\r",
+              "pm.test(\"Se generó el comprobante de pago en estado 'procesado'\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.pago.estado).to.eql(\"procesado\");\r",
+              "});\r",
+              "\r",
+              "// Validar consistencia de datos entre Factura y Pago\r",
+              "pm.test(\"El monto pagado coincide con el monto de la factura\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.pago.monto).to.eql(jsonData.data.factura.monto);\r",
+              "    pm.expect(jsonData.data.pago.factura_id).to.eql(jsonData.data.factura.id);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID_tabla}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Pago de una factura de ANDE inexistente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Validar que la API responda con 404 Not Found\r",
+              "pm.test(\"La API rechaza la solicitud con código 404 Not Found\", function () {\r",
+              "    pm.response.to.have.status(404);\r",
+              "});\r",
+              "\r",
+              "// Validar el código de error interno de la API\r",
+              "pm.test(\"Respuesta no encontrado(NOT_FOUND)\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error.code).to.eql(\"NOT_FOUND\");\r",
+              "});\r",
+              "\r",
+              "// Validar que el mensaje confirme que la factura no fue encontrada\r",
+              "pm.test(\"El mensaje indica que la factura no existe \", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error.message).to.eql(\"Factura no encontrada o ya pagada.\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno",
+              "var rawUsuarioId = pm.environment.get(\"UsuarioID\");",
+              "var usuarioIdNum = parseInt(rawUsuarioId, 10);",
+              "",
+              "if (isNaN(usuarioIdNum)) {",
+              "    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");",
+              "    usuarioIdNum = 1;",
+              "}",
+              "",
+              "// 2. Construir la consulta SQL",
+              "const queryBody = {",
+              "    sql: \"SELECT COALESCE(MAX(id), 0) + 1000 AS id_inexistente FROM facturas\"",
+              "};",
+              "",
+              "// 3. Obtener baseUrl y apiKey",
+              "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+              "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+              "",
+              "// 4. Ejecutar la petición SQL previa (con x-api-key)",
+              "pm.sendRequest({",
+              "    url: baseUrl + \"/api/v1/sql/select\",",
+              "    method: 'POST',",
+              "    header: {",
+              "        'Content-Type': 'application/json',",
+              "        'x-api-key': apiKey",
+              "    },",
+              "    body: {",
+              "        mode: 'raw',",
+              "        raw: JSON.stringify(queryBody)",
+              "    }",
+              "}, function (err, res) {",
+              "    if (err) {",
+              "        console.error(\"Error al ejecutar Pre-request SQL:\", err);",
+              "        pm.collectionVariables.set(\"ID_tabla\", 999999);",
+              "        return;",
+              "    }",
+              "",
+              "    var responseData = res.json();",
+              "",
+              "    // 5. Validar la respuesta y extraer el ID",
+              "    if (responseData && responseData.data && responseData.data.length > 0) {",
+              "        var rawId = responseData.data[0].id;",
+              "        var idNumerico = parseInt(rawId, 10);",
+              "",
+              "        if (!isNaN(idNumerico)) {",
+              "            pm.collectionVariables.set(\"ID_tabla\", idNumerico);",
+              "            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);",
+              "        } else {",
+              "            console.error(\"El id retornado no es interpretable como número:\", rawId);",
+              "            pm.collectionVariables.set(\"ID_tabla\", 999999);",
+              "        }",
+              "    } else {",
+              "        console.warn(\"No se encontraron facturas pendientes/vencidas de ANDE para el usuario:\", usuarioIdNum);",
+              "        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));",
+              "        pm.collectionVariables.set(\"ID_tabla\", 999999);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID_tabla}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Factura de ANDE ya pagada anteriormente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Validar que la API responda con 404 Not Found\r",
+              "pm.test(\"La API rechaza la solicitud con código 404 Not Found\", function () {\r",
+              "    pm.response.to.have.status(404);\r",
+              "});\r",
+              "\r",
+              "// Validar el código de error interno de la API\r",
+              "pm.test(\"Respuesta no encontrado(NOT_FOUND)\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error.code).to.eql(\"NOT_FOUND\");\r",
+              "});\r",
+              "\r",
+              "// Validar que el mensaje confirme que la factura no fue encontrada o ya está pagada\r",
+              "pm.test(\"El mensaje indica que la factura no existe o ya se encuentra pagada\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error.message).to.eql(\"Factura no encontrada o ya pagada.\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno\r",
+              "var rawUsuarioId = pm.environment.get(\"UsuarioID\");\r",
+              "var usuarioIdNum = parseInt(rawUsuarioId, 10);\r",
+              "\r",
+              "if (isNaN(usuarioIdNum)) {\r",
+              "    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");\r",
+              "    usuarioIdNum = 1;\r",
+              "}\r",
+              "\r",
+              "// 2. Construir la consulta SQL\r",
+              "const queryBody = {\r",
+              "    sql: \"SELECT id FROM facturas WHERE proveedor = $1 AND estado = $2 AND usuario_id = $3 LIMIT 1\",\r",
+              "    params: [\"ANDE\", \"pagada\", usuarioIdNum]\r",
+              "};\r",
+              "\r",
+              "// 3. Obtener baseUrl y apiKey\r",
+              "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");\r",
+              "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");\r",
+              "\r",
+              "// 4. Ejecutar la petición SQL previa (con x-api-key)\r",
+              "pm.sendRequest({\r",
+              "    url: baseUrl + \"/api/v1/sql/select\",\r",
+              "    method: 'POST',\r",
+              "    header: {\r",
+              "        'Content-Type': 'application/json',\r",
+              "        'x-api-key': apiKey\r",
+              "    },\r",
+              "    body: {\r",
+              "        mode: 'raw',\r",
+              "        raw: JSON.stringify(queryBody)\r",
+              "    }\r",
+              "}, function (err, res) {\r",
+              "    if (err) {\r",
+              "        console.error(\"Error al ejecutar Pre-request SQL:\", err);\r",
+              "        pm.collectionVariables.set(\"ID_tabla\", 0);\r",
+              "        return;\r",
+              "    }\r",
+              "\r",
+              "    var responseData = res.json();\r",
+              "\r",
+              "    // 5. Validar la respuesta y extraer el ID\r",
+              "    if (responseData && responseData.data && responseData.data.length > 0) {\r",
+              "        var rawId = responseData.data[0].id;\r",
+              "        var idNumerico = parseInt(rawId, 10);\r",
+              "\r",
+              "        if (!isNaN(idNumerico)) {\r",
+              "            pm.collectionVariables.set(\"ID_tabla\", idNumerico);\r",
+              "            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);\r",
+              "        } else {\r",
+              "            console.error(\"El id retornado no es interpretable como número:\", rawId);\r",
+              "            pm.collectionVariables.set(\"ID_tabla\", 0);\r",
+              "        }\r",
+              "    } else {\r",
+              "        console.warn(\"No se encontraron facturas pendientes/vencidas de ANDE para el usuario:\", usuarioIdNum);\r",
+              "        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));\r",
+              "        pm.collectionVariables.set(\"ID_tabla\", 0);\r",
+              "    }\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID_tabla}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Pago de factura de telefonia COPACO con numero de linea invalido",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const queryBody = {",
+              "    sql: \"SELECT COALESCE(MAX(id), 0) + 1000 AS id_inexistente FROM facturas WHERE proveedor = 'COPACO'\"",
+              "};",
+              "",
+              "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+              "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+              "",
+              "pm.sendRequest({",
+              "    url: baseUrl + \"/api/v1/sql/select\",",
+              "    method: 'POST',",
+              "    header: {",
+              "        'Content-Type': 'application/json',",
+              "        'x-api-key': apiKey",
+              "    },",
+              "    body: {",
+              "        mode: 'raw',",
+              "        raw: JSON.stringify(queryBody)",
+              "    }",
+              "}, function (err, res) {",
+              "    if (err) {",
+              "        console.error(\"Error al ejecutar Pre-request SQL:\", err);",
+              "        pm.collectionVariables.set(\"ID_tabla\", 999999);",
+              "        return;",
+              "    }",
+              "    var responseData = res.json();",
+              "    if (responseData && responseData.data && responseData.data.length > 0) {",
+              "        var idNumerico = parseInt(responseData.data[0].id_inexistente, 10);",
+              "        pm.collectionVariables.set(\"ID_tabla\", isNaN(idNumerico) ? 999999 : idNumerico);",
+              "    } else {",
+              "        pm.collectionVariables.set(\"ID_tabla\", 999999);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"La API responde con 404 Not Found al consultar la linea invalida\", function () {",
+              "    pm.response.to.have.status(404);",
+              "});",
+              "",
+              "pm.test(\"El codigo de error indica que no se encontro la factura/linea\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.code).to.eql(\"NOT_FOUND\");",
+              "});",
+              "",
+              "pm.test(\"El sistema no permite continuar con el pago (no hay factura sobre la cual pagar)\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error).to.exist;",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas/{{ID_tabla}}/pagar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        },
+        "description": "Mapea 'Pago de factura de telefonia con numero de linea invalido' (proveedor COPACO): el pre-request genera un ID_tabla garantizado inexistente (MAX(id)+1000 filtrando por proveedor='COPACO'), y luego se intenta pagar esa factura inexistente con POST /facturas/{{ID_tabla}}/pagar. La API responde 404 NOT_FOUND, confirmando que no existe esa linea/factura y que no se puede continuar con el pago."
+      },
+      "response": []
+    },
+    {
+      "name": "Pago de factura de telefonia el mismo dia del vencimiento",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var rawUsuarioId = pm.environment.get(\"UsuarioID\");\nvar usuarioIdNum = parseInt(rawUsuarioId, 10);\n\nif (isNaN(usuarioIdNum)) {\n    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");\n    usuarioIdNum = 1;\n}\n\nconst queryBody = {\n    sql: \"SELECT id FROM facturas WHERE proveedor = $1 AND estado IN ($2, $3) AND fecha_vencimiento = CURRENT_DATE AND usuario_id = $4 LIMIT 1\",\n    params: [\"Tigo\", \"pendiente\", \"vencida\", usuarioIdNum]\n};\n\nvar baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");\nvar apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");\n\npm.sendRequest({\n    url: baseUrl + \"/api/v1/sql/select\",\n    method: 'POST',\n    header: {\n        'Content-Type': 'application/json',\n        'x-api-key': apiKey\n    },\n    body: {\n        mode: 'raw',\n        raw: JSON.stringify(queryBody)\n    }\n}, function (err, res) {\n    if (err) {\n        console.error(\"Error al ejecutar Pre-request SQL:\", err);\n        pm.collectionVariables.set(\"ID_tabla\", 0);\n        return;\n    }\n    var responseData = res.json();\n    if (responseData && responseData.data && responseData.data.length > 0) {\n        var idNumerico = parseInt(responseData.data[0].id, 10);\n        pm.collectionVariables.set(\"ID_tabla\", isNaN(idNumerico) ? 0 : idNumerico);\n        console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);\n    } else {\n        console.warn(\"No se encontro una factura de Tigo con vencimiento hoy para el usuario:\", usuarioIdNum);\n        pm.collectionVariables.set(\"ID_tabla\", 0);\n    }\n});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Pago confirmado correctamente\", function () {\n    pm.response.to.have.status(200);\n});\n\npm.test(\"El estado de la factura se actualizo a pagada\", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.data.factura.estado).to.eql(\"pagada\");\n});\n\npm.test(\"Se genero el comprobante de pago en estado 'procesado'\", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.data.pago.estado).to.eql(\"procesado\");\n});\n\npm.test(\"El monto pagado coincide con el monto de la factura\", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.data.pago.monto).to.eql(jsonData.data.factura.monto);\n    pm.expect(jsonData.data.pago.factura_id).to.eql(jsonData.data.factura.id);\n});\n\npm.test(\"La factura pagada es la que vencia hoy (segun la busqueda del pre-request)\", function () {\n    pm.expect(pm.collectionVariables.get(\"ID_tabla\")).to.not.eql(0);\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas/{{ID_tabla}}/pagar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        },
+        "description": "Mapea 'Pago de factura de telefonia el mismo dia del vencimiento': el pre-request busca (via /api/v1/sql/select) una factura de TELEFONIA pendiente/vencida cuyo fecha_vencimiento = CURRENT_DATE, y luego se paga con POST /facturas/{{ID_tabla}}/pagar, replicando el patron de 'Pago exitoso de factura de ANDE'."
+      },
+      "response": []
+    },
+    {
+      "name": "Pago de factura con monto invalido",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var rawUsuarioId = pm.environment.get(\"UsuarioID\");",
+              "var usuarioIdNum = parseInt(rawUsuarioId, 10) || 1;",
+              "",
+              "const queryBody = {",
+              "    sql: \"SELECT id FROM facturas WHERE estado = $1 AND usuario_id = $2 LIMIT 1\",",
+              "    params: [\"pendiente\", usuarioIdNum]",
+              "};",
+              "",
+              "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+              "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+              "",
+              "pm.sendRequest({",
+              "    url: baseUrl + \"/api/v1/sql/select\",",
+              "    method: 'POST',",
+              "    header: { 'Content-Type': 'application/json', 'x-api-key': apiKey },",
+              "    body: { mode: 'raw', raw: JSON.stringify(queryBody) }",
+              "}, function (err, res) {",
+              "    if (!err && res.json() && res.json().data && res.json().data.length > 0) {",
+              "        pm.collectionVariables.set(\"ID_tabla\", res.json().data[0].id);",
+              "    } else {",
+              "        pm.collectionVariables.set(\"ID_tabla\", 1);",
+              "    }",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"La API responde con código 400 Bad Request\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test(\"El código de error indica solicitud inválida\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.code).to.eql(\"INVALID_INPUT\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\",\n  \"monto\": -5000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/facturas/{{ID_tabla}}/pagar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Pago de una factura de ESSAP inexistente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Validar que la API responda con 404 Not Found\r\npm.test(\"La API rechaza la solicitud con código 404 Not Found\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\n// Validar el código de error interno de la API\r\npm.test(\"Respuesta no encontrado(NOT_FOUND)\", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.error.code).to.eql(\"NOT_FOUND\");\r\n});\r\n\r\n// Validar que el mensaje confirme que la factura no fue encontrada\r\npm.test(\"El mensaje indica que la factura no existe \", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.error.message).to.eql(\"Factura no encontrada o ya pagada.\");\r\n});"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno\nvar rawUsuarioId = pm.environment.get(\"UsuarioID\");\nvar usuarioIdNum = parseInt(rawUsuarioId, 10);\n\nif (isNaN(usuarioIdNum)) {\n    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");\n    usuarioIdNum = 1;\n}\n\n// 2. Construir la consulta SQL\nconst queryBody = {\n    sql: \"SELECT COALESCE(MAX(id), 0) + 1000 AS id_inexistente FROM facturas\"\n};\n\n// 3. Obtener baseUrl y apiKey\nvar baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");\nvar apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");\n\n// 4. Ejecutar la petición SQL previa (con x-api-key)\npm.sendRequest({\n    url: baseUrl + \"/api/v1/sql/select\",\n    method: 'POST',\n    header: {\n        'Content-Type': 'application/json',\n        'x-api-key': apiKey\n    },\n    body: {\n        mode: 'raw',\n        raw: JSON.stringify(queryBody)\n    }\n}, function (err, res) {\n    if (err) {\n        console.error(\"Error al ejecutar Pre-request SQL:\", err);\n        pm.collectionVariables.set(\"ID_tabla\", 999999);\n        return;\n    }\n\n    var responseData = res.json();\n\n    // 5. Validar la respuesta y extraer el ID\n    if (responseData && responseData.data && responseData.data.length > 0) {\n        var rawId = responseData.data[0].id;\n        var idNumerico = parseInt(rawId, 10);\n\n        if (!isNaN(idNumerico)) {\n            pm.collectionVariables.set(\"ID_tabla\", idNumerico);\n            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);\n        } else {\n            console.error(\"El id retornado no es interpretable como número:\", rawId);\n            pm.collectionVariables.set(\"ID_tabla\", 999999);\n        }\n    } else {\n        console.warn(\"No se encontraron facturas pendientes/vencidas de ESSAP para el usuario:\", usuarioIdNum);\n        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));\n        pm.collectionVariables.set(\"ID_tabla\", 999999);\n    }\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID_tabla}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Factura de ESSAP ya pagada anteriormente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Validar que la API responda con 404 Not Found\r\npm.test(\"La API rechaza la solicitud con código 404 Not Found\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\n// Validar el código de error interno de la API\r\npm.test(\"Respuesta no encontrado(NOT_FOUND)\", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.error.code).to.eql(\"NOT_FOUND\");\r\n});\r\n\r\n// Validar que el mensaje confirme que la factura no fue encontrada o ya está pagada\r\npm.test(\"El mensaje indica que la factura no existe o ya se encuentra pagada\", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.error.message).to.eql(\"Factura no encontrada o ya pagada.\");\r\n});"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno\r\nvar rawUsuarioId = pm.environment.get(\"UsuarioID\");\r\nvar usuarioIdNum = parseInt(rawUsuarioId, 10);\r\n\r\nif (isNaN(usuarioIdNum)) {\r\n    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");\r\n    usuarioIdNum = 1;\r\n}\r\n\r\n// 2. Construir la consulta SQL\r\nconst queryBody = {\r\n    sql: \"SELECT id FROM facturas WHERE proveedor = $1 AND estado = $2 AND usuario_id = $3 LIMIT 1\",\r\n    params: [\"ESSAP\", \"pagada\", usuarioIdNum]\r\n};\r\n\r\n// 3. Obtener baseUrl y apiKey\r\nvar baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");\r\nvar apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");\r\n\r\n// 4. Ejecutar la petición SQL previa (con x-api-key)\r\npm.sendRequest({\r\n    url: baseUrl + \"/api/v1/sql/select\",\r\n    method: 'POST',\r\n    header: {\r\n        'Content-Type': 'application/json',\r\n        'x-api-key': apiKey\r\n    },\r\n    body: {\r\n        mode: 'raw',\r\n        raw: JSON.stringify(queryBody)\r\n    }\r\n}, function (err, res) {\r\n    if (err) {\r\n        console.error(\"Error al ejecutar Pre-request SQL:\", err);\r\n        pm.collectionVariables.set(\"ID_tabla\", 0);\r\n        return;\r\n    }\r\n\r\n    var responseData = res.json();\r\n\r\n    // 5. Validar la respuesta y extraer el ID\r\n    if (responseData && responseData.data && responseData.data.length > 0) {\r\n        var rawId = responseData.data[0].id;\r\n        var idNumerico = parseInt(rawId, 10);\r\n\r\n        if (!isNaN(idNumerico)) {\r\n            pm.collectionVariables.set(\"ID_tabla\", idNumerico);\r\n            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);\r\n        } else {\r\n            console.error(\"El id retornado no es interpretable como número:\", rawId);\r\n            pm.collectionVariables.set(\"ID_tabla\", 0);\r\n        }\r\n    } else {\r\n        console.warn(\"No se encontraron facturas pendientes/vencidas de ESSAP para el usuario:\", usuarioIdNum);\r\n        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));\r\n        pm.collectionVariables.set(\"ID_tabla\", 0);\r\n    }\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID_tabla}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Pago exitoso de factura de ESSAP",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 1. Obtener UsuarioID desde el entorno\nvar rawUsuarioId = pm.environment.get(\"UsuarioID\");\nvar usuarioIdNum = parseInt(rawUsuarioId, 10);\n\nif (isNaN(usuarioIdNum)) {\n    console.warn(\"UsuarioID no está configurado en el entorno o es inválido. Usando valor por defecto: 1\");\n    usuarioIdNum = 1;\n}\n\n// 2. Construir la consulta SQL\nconst queryBody = {\n    sql: \"SELECT id FROM facturas WHERE proveedor = $1 AND estado IN ($2, $3) AND usuario_id = $4 LIMIT 1\",\n    params: [\"ESSAP\", \"pendiente\", \"vencida\", usuarioIdNum]\n};\n\n// 3. Obtener baseUrl y apiKey\nvar baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");\nvar apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");\n\n// 4. Ejecutar la petición SQL previa (con x-api-key)\npm.sendRequest({\n    url: baseUrl + \"/api/v1/sql/select\",\n    method: 'POST',\n    header: {\n        'Content-Type': 'application/json',\n        'x-api-key': apiKey\n    },\n    body: {\n        mode: 'raw',\n        raw: JSON.stringify(queryBody)\n    }\n}, function (err, res) {\n    if (err) {\n        console.error(\"Error al ejecutar Pre-request SQL:\", err);\n        pm.collectionVariables.set(\"ID_tabla\", 0);\n        return;\n    }\n\n    var responseData = res.json();\n\n    // 5. Validar la respuesta y extraer el ID\n    if (responseData && responseData.data && responseData.data.length > 0) {\n        var rawId = responseData.data[0].id;\n        var idNumerico = parseInt(rawId, 10);\n\n        if (!isNaN(idNumerico)) {\n            pm.collectionVariables.set(\"ID_tabla\", idNumerico);\n            console.log(\"✓ ID_tabla asignado con éxito:\", idNumerico);\n        } else {\n            console.error(\"El id retornado no es interpretable como número:\", rawId);\n            pm.collectionVariables.set(\"ID_tabla\", 1);\n        }\n    } else {\n        console.warn(\"No se encontraron facturas pendientes/vencidas de ESSAP para el usuario:\", usuarioIdNum);\n        console.warn(\"Respuesta SQL:\", JSON.stringify(responseData));\n        pm.collectionVariables.set(\"ID_tabla\", 1);\n    }\n});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Validar que la API responda200 OK\r\npm.test(\"Pago confirmado correctamente\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\n// Validar que factura cambia a estado pagada\r\npm.test(\"El estado de la factura se actualizó a pagada\", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.factura.estado).to.eql(\"pagada\");\r\n});\r\n\r\n// Validar que el pago fue procesado correctamente\r\npm.test(\"Se generó el comprobante de pago en estado 'procesado'\", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.pago.estado).to.eql(\"procesado\");\r\n});\r\n\r\n// Validar consistencia de datos entre Factura y Pago\r\npm.test(\"El monto pagado coincide con el monto de la factura\", function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.pago.monto).to.eql(jsonData.data.factura.monto);\r\n    pm.expect(jsonData.data.pago.factura_id).to.eql(jsonData.data.factura.id);\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/facturas/{{ID_tabla}}/pagar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "facturas",
+            "{{ID_tabla}}",
+            "pagar"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Escenarios Mejorados BDD - RF-G3 (nuevos)",
+      "description": "Folder agregado sin modificar lo existente. Cubre los escenarios de # ===== ESCENARIOS MEJORADOS BASADOS EN REQUERIMIENTOS REALES ===== del feature pagos-servicios.feature (RF-G3-01 a RF-G3-06 + transversales). Usa {{baseUrl}} y {{apiKey}} segun skill postman-newman. Pre-requests resuelven IDs dinamicos via POST /api/v1/sql/select.",
+      "item": [
+        {
+          "name": "RF-G3-01 Listar pendientes estado=pendiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Todas tienen estado pendiente\", function () { var d = pm.response.json().data; pm.expect(d).to.be.an(\"array\"); d.forEach(function (f) { pm.expect(f.estado).to.eql(\"pendiente\"); }); });",
+                  "pm.test(\"Max 100 registros\", function () { pm.expect(pm.response.json().data.length).to.be.at.most(100); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?estado=pendiente",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"],
+              "query": [{ "key": "estado", "value": "pendiente" }]
+            },
+            "description": "BDD: Listar facturas filtrando por estado=pendiente. Todos los elementos devueltos tienen ese estado. RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-01 Listar por usuario y estado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = parseInt(pm.environment.get(\"UsuarioID\"), 10) || 1;",
+                  "pm.collectionVariables.set(\"G3_UID\", uid);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Cumplen ambas condiciones (usuario + estado)\", function () { var d = pm.response.json().data; var uid = Number(pm.collectionVariables.get(\"G3_UID\")); d.forEach(function (f) { pm.expect(Number(f.usuario_id)).to.eql(uid); pm.expect(f.estado).to.eql(\"pagada\"); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?usuarioId={{G3_UID}}&estado=pagada",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"],
+              "query": [{ "key": "usuarioId", "value": "{{G3_UID}}" }, { "key": "estado", "value": "pagada" }]
+            },
+            "description": "BDD: Combinar usuarioId y estado con Y logico. RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-01 Listar estado invalido anulada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?estado=anulada",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"],
+              "query": [{ "key": "estado", "value": "anulada" }]
+            },
+            "description": "BDD: Filtrar por estado=anulada responde 400 VALIDATION_ERROR. RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-01 Listar usuario sin facturas",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify({ sql: \"SELECT COALESCE(MAX(usuario_id),0)+1000 AS uid FROM facturas\" }) } }, function (err, res) { if (!err && res.json() && res.json().data) { pm.collectionVariables.set(\"G3_UID_EMPTY\", res.json().data[0].uid); } else { pm.collectionVariables.set(\"G3_UID_EMPTY\", 999999); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 con data vacia\", function () { pm.response.to.have.status(200); pm.expect(pm.response.json().data).to.be.an(\"array\").that.is.empty; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?usuarioId={{G3_UID_EMPTY}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"],
+              "query": [{ "key": "usuarioId", "value": "{{G3_UID_EMPTY}}" }]
+            },
+            "description": "BDD: Titular sin facturas devuelve 200 con data vacia, no error. RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-02 Consultar factura inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify({ sql: \"SELECT COALESCE(MAX(id),0)+1000 AS id_inexistente FROM facturas\" }) } }, function (err, res) { if (!err && res.json() && res.json().data) { pm.collectionVariables.set(\"G3_ID_INEX\", res.json().data[0].id_inexistente); } else { pm.collectionVariables.set(\"G3_ID_INEX\", 999999); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });",
+                  "pm.test(\"Mensaje Factura no encontrada.\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Factura no encontrada.\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_INEX}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_INEX}}"]
+            },
+            "description": "BDD: Consultar factura inexistente responde 404 NOT_FOUND. RF-G3-02."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-03 Pagar con metodoPago invalido cripto",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "var uid = parseInt(pm.environment.get(\"UsuarioID\"), 10) || 1;",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify({ sql: \"SELECT id FROM facturas WHERE estado = $1 AND activo = true AND usuario_id = $2 LIMIT 1\", params: [\"pendiente\", uid] }) } }, function (err, res) { if (!err && res.json() && res.json().data && res.json().data.length > 0) { pm.collectionVariables.set(\"G3_ID_PEND\", res.json().data[0].id); } else { pm.collectionVariables.set(\"G3_ID_PEND\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR y conserva pendiente\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"metodoPago\": \"cripto\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_PEND}}/pagar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_PEND}}", "pagar"]
+            },
+            "description": "BDD: Pagar con metodoPago=cripto responde 400 VALIDATION_ERROR y la factura conserva su estado. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-03 Pagar sin metodoPago",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_PEND}}/pagar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_PEND}}", "pagar"]
+            },
+            "description": "BDD: Pagar sin metodoPago responde 400 VALIDATION_ERROR. Reusa G3_ID_PEND. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-03 Pagar ID no numerico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/abc/pagar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "abc", "pagar"]
+            },
+            "description": "BDD: Pagar con ID abc en la ruta responde 400 VALIDATION_ERROR. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-04 Crear duplicado numeroFactura 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify({ sql: \"SELECT numero_factura AS num FROM facturas WHERE activo = true LIMIT 1\" }) } }, function (err, res) { if (!err && res.json() && res.json().data && res.json().data.length > 0) { pm.collectionVariables.set(\"G3_NUM_EXIST\", res.json().data[0].num); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Codigo CONFLICT\", function () { pm.expect(pm.response.json().error.code).to.eql(\"CONFLICT\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 1,\n  \"proveedor\": \"ANDE\",\n  \"numeroFactura\": \"{{G3_NUM_EXIST}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"]
+            },
+            "description": "BDD: Crear con numeroFactura ya usado responde 409 CONFLICT. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-04 Crear proveedor invalido Claro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 1,\n  \"proveedor\": \"Claro\",\n  \"numeroFactura\": \"FAC-INV-{{$timestamp}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"]
+            },
+            "description": "BDD: Crear con proveedor=Claro responde 400 VALIDATION_ERROR. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-04 Crear usuario inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify({ sql: \"SELECT COALESCE(MAX(id),0)+1000 AS uid FROM usuarios\" }) } }, function (err, res) { if (!err && res.json() && res.json().data) { pm.collectionVariables.set(\"G3_UID_INEX\", res.json().data[0].uid); } else { pm.collectionVariables.set(\"G3_UID_INEX\", 999999); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 999999,\n  \"proveedor\": \"ANDE\",\n  \"numeroFactura\": \"FAC-NEW-{{$timestamp}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"]
+            },
+            "description": "BDD: Crear para usuarioId inexistente responde 400 VALIDATION_ERROR por FK. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-04 Crear fecha pasada 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Estado pendiente aunque vencida\", function () { pm.expect(pm.response.json().data.estado).to.eql(\"pendiente\"); });",
+                  "pm.test(\"Guarda ID para baja posterior\", function () { pm.collectionVariables.set(\"G3_ID_FRESH\", pm.response.json().data.id); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 1,\n  \"proveedor\": \"ESSAP\",\n  \"numeroFactura\": \"FAC-PAS-{{$timestamp}}\",\n  \"monto\": 45000,\n  \"fechaVencimiento\": \"2020-01-01\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"]
+            },
+            "description": "BDD: Crear con fechaVencimiento pasada es aceptado 201 con estado pendiente. Guarda G3_ID_FRESH para RF-G3-06. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-05 Reemplazar duplicado 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "var q1 = { sql: \"SELECT id FROM facturas WHERE activo = true ORDER BY id LIMIT 1\" };",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify(q1) } }, function (e1, r1) { if (!e1 && r1.json().data.length > 0) { pm.collectionVariables.set(\"G3_PUT_ID\", r1.json().data[0].id); var q2 = { sql: \"SELECT numero_factura AS num FROM facturas WHERE activo = true AND id <> $1 LIMIT 1\", params: [r1.json().data[0].id] }; pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify(q2) } }, function (e2, r2) { if (!e2 && r2.json().data.length > 0) { pm.collectionVariables.set(\"G3_NUM_OTHER\", r2.json().data[0].num); } }); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Codigo CONFLICT\", function () { pm.expect(pm.response.json().error.code).to.eql(\"CONFLICT\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"proveedor\": \"ANDE\",\n  \"numeroFactura\": \"{{G3_NUM_OTHER}}\",\n  \"monto\": 75000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_PUT_ID}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_PUT_ID}}"]
+            },
+            "description": "BDD: Reemplazar con numeroFactura de otra factura responde 409 CONFLICT. RF-G3-05."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-05 Reemplazar inexistente 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "x-api-key", "value": "{{apiKey}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"proveedor\": \"ANDE\",\n  \"numeroFactura\": \"FAC-NOEX-{{$timestamp}}\",\n  \"monto\": 75000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_INEX}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_INEX}}"]
+            },
+            "description": "BDD: Reemplazar factura inexistente o dada de baja responde 404 NOT_FOUND. RF-G3-05."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-06 Baja vigente 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 sin cuerpo\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_FRESH}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_FRESH}}"]
+            },
+            "description": "BDD: Dar de baja factura vigente responde 204. Usa G3_ID_FRESH creado en RF-G3-04. Luego ya no aparece en GET. RF-G3-06."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-06 Baja ya pagada 204",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var baseUrl = pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\");",
+                  "var apiKey = pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\");",
+                  "var uid = parseInt(pm.environment.get(\"UsuarioID\"), 10) || 1;",
+                  "pm.sendRequest({ url: baseUrl + \"/api/v1/sql/select\", method: \"POST\", header: { \"Content-Type\": \"application/json\", \"x-api-key\": apiKey }, body: { mode: \"raw\", raw: JSON.stringify({ sql: \"SELECT id FROM facturas WHERE estado = $1 AND activo = true AND usuario_id = $2 LIMIT 1\", params: [\"pagada\", uid] }) } }, function (err, res) { if (!err && res.json() && res.json().data && res.json().data.length > 0) { pm.collectionVariables.set(\"G3_ID_PAGADA\", res.json().data[0].id); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 aunque pagada\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_PAGADA}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_PAGADA}}"]
+            },
+            "description": "BDD: Dar de baja factura ya pagada es aceptado 204 sin afectar pagos. RF-G3-06."
+          },
+          "response": []
+        },
+        {
+          "name": "RF-G3-06 Baja inexistente 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{G3_ID_INEX}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas", "{{G3_ID_INEX}}"]
+            },
+            "description": "BDD: Dar de baja factura inexistente responde 404 NOT_FOUND. RF-G3-06."
+          },
+          "response": []
+        },
+        {
+          "name": "Transversal Sin API key 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Mensaje generico\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Invalid or inactive API key.\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"]
+            },
+            "description": "BDD transversal: request sin header x-api-key responde 401 UNAUTHORIZED."
+          },
+          "response": []
+        },
+        {
+          "name": "Transversal API key invalida 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Mensaje generico\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Invalid or inactive API key.\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-api-key", "value": "INVALID_KEY_123" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "facturas"]
+            },
+            "description": "BDD transversal: request con x-api-key invalida responde 401 UNAUTHORIZED."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "ID_tabla",
+      "value": ""
+    }
+  ]
+}

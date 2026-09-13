@@ -1,0 +1,63 @@
+# Y_EXAMPLE_BDD_azure.yml
+# Cucumber + Playwright BDD tests — Azure Pipelines
+# Generado por skill bdd · aiquaa.com
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - grupo-*
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  resultsDir: '$(Build.ArtifactStagingDirectory)/bdd-results'
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: Instalar Node
+
+  - script: npm ci
+    displayName: Instalar dependencias
+
+  - script: npx playwright install --with-deps chromium
+    displayName: Instalar navegadores Playwright
+
+  - script: mkdir -p $(resultsDir)
+    displayName: Crear directorio de resultados
+
+  - script: npx cucumber-js
+    displayName: Correr suite BDD
+    continueOnError: true
+    env:
+      SANDBOX_API_BASE_URL: $(SANDBOX_API_BASE_URL)
+      SANDBOX_API_KEY: $(SANDBOX_API_KEY)
+      SANDBOX_WEB_BASE_URL: $(SANDBOX_WEB_BASE_URL)
+
+  - script: |
+      pip install reportlab --quiet
+      python reporter/bdd_report.py \
+        --results results/cucumber-report.json \
+        --output $(resultsDir)/INFORME_BDD.pdf \
+        --grupo "$(GRUPO_NOMBRE)"
+    displayName: Generar informe PDF
+    condition: always()
+
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'results/*.xml'
+      failTaskOnFailedTests: false
+    displayName: Publicar resultados (si hay formatter JUnit configurado)
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: $(Build.ArtifactStagingDirectory)
+      artifactName: bdd-results
+    displayName: Subir artefactos
