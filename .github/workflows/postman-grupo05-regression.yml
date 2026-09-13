@@ -1,4 +1,4 @@
-name: Postman Regression - Grupo 07 Carrito (con reporte PDF en Python)
+name: Postman Regression - Grupo 05 Tarjetas Credito Debito (con reporte PDF en Python)
 
 on:
   push:
