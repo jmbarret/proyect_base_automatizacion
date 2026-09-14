@@ -22,6 +22,11 @@ Feature: Administración de Roles y Permisos
     Then el sistema deniega la accion
     And muestra un mensaje indicando que no tiene permisos suficientes
 
+  Scenario: Intentar desembolsar el monto límite máximo permitido para un Cajero
+    Given que el usuario autenticado en el backoffice tiene el rol "Cajero"
+    When intenta aprobar un desembolso por el monto límite exacto de "USD 49.999"
+    Then el sistema procesa la transacción exitosamente
+    And no solicita la autorización de un Gerente de Sucursal
   Scenario: Usuario con rol limitado intenta ejecutar una accion sobre el limite permitido
     Given que el usuario autenticado en el backoffice tiene el rol "Operador"
     When intenta ejecutar una accion que excede el limite permitido para su rol
