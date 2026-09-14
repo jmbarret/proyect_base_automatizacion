@@ -27,9 +27,22 @@ on:
 permissions:
   contents: read
 
+# El rate limit del sandbox es por api-key, no por corrida: dos ejecuciones
+# simultaneas se roban las 30 req/min entre si y ambas terminan en 429. Se
+# serializan las corridas de este workflow en vez de cancelarlas, para que un
+# push seguido de otro no invalide la medicion.
+concurrency:
+  group: aiquaa-sandbox-grupo05
+  cancel-in-progress: false
+
 env:
   JMETER_VERSION: 5.6.3
   RESULTS_DIR: test-results/performance/grupo05
+  API_BASE: https://aiquaa-sandbox-api.vercel.app
+  # La api key no vive en el .jmx. Si el secret no esta cargado se usa la key
+  # publica del sandbox que se repartio en clase, para que el workflow siga
+  # siendo ejecutable por cualquiera del grupo.
+  API_KEY: ${{ secrets.GRUPO05_API_KEY || 'sbx_demo_f581ca21e68a347288c94d71' }}
 
 jobs:
   performance:
@@ -58,14 +71,38 @@ jobs:
             "https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz" -o jmeter.tgz
           tar -xzf jmeter.tgz
 
-      - name: Ejecutar plan de carga headless
-        # La api key no vive en el .jmx: entra por -JapiKey. Si el secret no esta
-        # cargado se usa la key publica del sandbox que se repartio en clase, para
-        # que el workflow siga siendo ejecutable por cualquiera del grupo.
-        env:
-          API_KEY: ${{ secrets.GRUPO05_API_KEY }}
+      - name: Esperar a que haya cupo en el rate limit
+        # La key publica del sandbox la comparte toda la clase, con un limite de
+        # 30 req/min por key. El plan del curso (jmeter-performance.yml) se dispara
+        # con los mismos archivos que este workflow y corre a 27 muestras/min, asi
+        # que puede estar consumiendo casi todo el cupo mientras arrancamos.
+        #
+        # Sondear una sola request no alcanza: mientras el otro plan se mantenga
+        # bajo las 30/min la API responde 200 y recien al sumarnos nosotros se pasa
+        # el limite. Por eso se mide HOLGURA, no disponibilidad: una rafaga corta
+        # solo pasa limpia si de verdad sobra cupo en la ventana.
         run: |
-          API_KEY="${API_KEY:-sbx_demo_f581ca21e68a347288c94d71}"
+          for ronda in $(seq 1 12); do
+            limitado=0
+            for i in $(seq 1 5); do
+              code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+                --header "x-api-key: ${API_KEY}" \
+                "${API_BASE}/api/v1/tarjetas/2")
+              if [ "${code}" = "429" ]; then
+                limitado=1
+              fi
+            done
+            if [ "${limitado}" = "0" ]; then
+              echo "Hay cupo en la ventana (rafaga de 5 sin 429) tras ${ronda} ronda(s). Se arranca."
+              exit 0
+            fi
+            echo "Sin cupo: la rafaga dio 429, otra corrida esta usando la key. Reintento en 30 s (${ronda}/12)."
+            sleep 30
+          done
+          echo "::warning::Sigue sin haber cupo tras 6 min. Se corre igual; esperar 429 en el informe."
+
+      - name: Ejecutar plan de carga headless
+        run: |
           mkdir -p "${RESULTS_DIR}/dashboard"
           "apache-jmeter-${JMETER_VERSION}/bin/jmeter" -n \
             -t tests/performance/plans/Grupo05_Tarjetas_v1.jmx \

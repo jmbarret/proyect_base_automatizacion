@@ -101,10 +101,26 @@ rate limit cuenta como fallo, que es justamente lo que interesa medir.
 
 ### Restricciones de la API
 
-El sandbox limita a **30 req/min por api-key** y responde `429` al pasarse. El plan lleva un
-Constant Throughput Timer a 24 muestras/min sobre todo el grupo de hilos. La ventana es
-compartida por toda la clase, así que dos corridas seguidas pueden dar 429 aunque el plan
-esté bien paceado; conviene esperar un minuto entre corridas.
+El sandbox limita a **30 req/min por api-key** y responde `429` al pasarse. Esa ventana es de
+la key, no de la corrida, y la key pública la comparte toda la clase: dos ejecuciones
+simultáneas se roban el cupo entre sí y las dos terminan en 429. Tres defensas:
+
+1. El plan lleva un Constant Throughput Timer a **18 muestras/min** sobre todo el grupo de
+   hilos, con margen para el tráfico ajeno.
+2. El workflow declara `concurrency: aiquaa-sandbox-grupo05`, que serializa sus propias
+   corridas en vez de cancelarlas.
+3. Antes de arrancar, el workflow espera hasta 6 minutos a que **haya cupo** en la ventana.
+   Mide holgura, no disponibilidad: manda una ráfaga de 5 requests y solo arranca si
+   ninguna dio 429. Sondear una sola no alcanza, porque mientras otra corrida se mantenga
+   bajo las 30/min la API responde 200 y el límite se pasa recién al sumarnos nosotros.
+
+Ojo con un choque propio del repo: el plan del curso
+([`jmeter-performance.yml`](../../.github/workflows/jmeter-performance.yml)) se dispara con
+`tests/performance/**`, que incluye los archivos de este grupo, y corre a 27 muestras/min
+sobre la misma key. Por eso el paso de espera es imprescindible: sin él, ambos planes se
+pisan en cada sincronización del PR.
+
+En local, conviene esperar un minuto entre corridas por el mismo motivo.
 
 `threads` (2), `loops` (5) y `rampUp` (0) son propiedades: se cambian con `-J` sin tocar el plan.
 

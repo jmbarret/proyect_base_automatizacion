@@ -5,12 +5,12 @@ on:
     branches: ["main"]
     paths:
       - "postman/Grupo05-Tarjetas-Credito-Debito.postman_collection.json"
-      - ".github/workflows/postman-grupo05-regression.yml"
+      - ".github/workflows/postman-grupo05-tarjetas.yml"
   pull_request:
     branches: ["main"]
     paths:
       - "postman/Grupo05-Tarjetas-Credito-Debito.postman_collection.json"
-      - ".github/workflows/postman-grupo05-regression.yml"
+      - ".github/workflows/postman-grupo05-tarjetas.yml"
   workflow_dispatch:
 
 jobs:
