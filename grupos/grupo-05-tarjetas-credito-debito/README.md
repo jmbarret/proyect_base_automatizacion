@@ -46,6 +46,7 @@ Checklist según [ENTREGABLES.md](../../ENTREGABLES.md):
 - [x] API — colección Postman/Newman
 - [ ] UI — `tests/e2e/` con Playwright
 - [x] Evidencias en `evidence/semana-03/` (salida Newman de la corrida SQL)
+- [x] Rendimiento — plan JMeter + CSV (`tests/performance/`, ver más abajo)
 - [ ] CI/CD verde
 - [ ] PR a `main` usando la plantilla del repo
 
@@ -71,3 +72,69 @@ Carpeta `E2E - Flujos con validacion SQL` en la colección Postman, sobre `PATCH
 - **Bloquear tarjeta - id inexistente (validación negativa)**: sobreescribe `tarjetaId` a `999999`; la API responde 404 y un `COUNT(*)` antes/después confirma que no se modificó ninguna fila.
 
 Evidencia de la corrida (Newman): [`evidence/semana-03/newman-sql-e2e.txt`](evidence/semana-03/newman-sql-e2e.txt) — 9 requests, 8/8 assertions OK.
+
+## Pruebas de rendimiento (JMeter)
+
+Plan del grupo: [`tests/performance/plans/Grupo05_Tarjetas_v1.jmx`](../../tests/performance/plans/Grupo05_Tarjetas_v1.jmx),
+ejecutado en CI por [`jmeter-grupo05-performance.yml`](../../.github/workflows/jmeter-grupo05-performance.yml).
+
+| Ruta | Qué es |
+|------|--------|
+| `tests/performance/plans/Grupo05_Tarjetas_v1.jmx` | Plan de carga: consulta y emisión de tarjetas. |
+| `tests/performance/data/grupo05_consulta_tarjetas.csv` | `tarjetaId,codigoEsperado` para el GET. |
+| `tests/performance/data/grupo05_emision_tarjetas.csv` | `usuarioId,tipo,marca,codigoEsperado` para el POST. |
+
+### Qué cubre
+
+1. **Consulta — `GET /api/v1/tarjetas/{id}`**, con ids del CSV: ids del seed (200), un id
+   inválido (`0` → 400) y uno inexistente (`9999` → 404).
+2. **Creación — `POST /api/v1/tarjetas`**, con filas válidas (201) y de borde
+   (`usuarioId` 0 e inexistente, `tipo` y `marca` fuera del enum → 400).
+3. **Dato dinámico**: un JSON Extractor toma `$.data.id` de la respuesta del POST y un
+   If Controller encadena `GET /api/v1/tarjetas/${tarjetaCreadaId}`, que valida 200 y que
+   el `id` devuelto sea el mismo que emitió la creación. Así la prueba no depende de ids
+   fijos del seed, que otros grupos borran (el id 1 del seed ya no existe).
+
+Cada fila del CSV lleva el código HTTP que espera, y la Response Assertion compara contra
+esa columna con *ignorar estado* activado: un 400 esperado cuenta como éxito y un 429 del
+rate limit cuenta como fallo, que es justamente lo que interesa medir.
+
+### Restricciones de la API
+
+El sandbox limita a **30 req/min por api-key** y responde `429` al pasarse. El plan lleva un
+Constant Throughput Timer a 24 muestras/min sobre todo el grupo de hilos. La ventana es
+compartida por toda la clase, así que dos corridas seguidas pueden dar 429 aunque el plan
+esté bien paceado; conviene esperar un minuto entre corridas.
+
+`threads` (2), `loops` (5) y `rampUp` (0) son propiedades: se cambian con `-J` sin tocar el plan.
+
+### Correr en local
+
+```bash
+jmeter -n -t tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+  -l test-results/performance/grupo05/R_GRUPO05_TARJETAS.jtl \
+  -e -o test-results/performance/grupo05/dashboard \
+  -JapiKey=<api-key> \
+  -Jthreads=2 -Jloops=5
+```
+
+La api key **no está en el plan**: entra por `-JapiKey`. En CI la aporta el secret
+`GRUPO05_API_KEY`; si no está cargado, el workflow cae a la key pública de la sandbox que
+se repartió en clase.
+
+Informe PDF a partir del `.jtl`, con el MCP del curso:
+
+```bash
+npx -y aiquaa-performance-mcp-server --report \
+  test-results/performance/grupo05/R_GRUPO05_TARJETAS.jtl \
+  tests/performance/thresholds/thresholds.json \
+  test-results/performance/grupo05/INFORME_PERF_GRUPO05.pdf \
+  --api-name "AIQUAA Sandbox API (tarjetas credito/debito)" \
+  --plan tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+  --test-type carga
+```
+
+### Mantenimiento del CSV de consulta
+
+Los ids del seed se borran con el uso. Si una fila `200` empieza a dar 404, se refresca la
+columna con los ids vigentes; el tramo dinámico (punto 3) no necesita mantenimiento.
