@@ -1,0 +1,12 @@
+{
+  "global": {
+    "scope": "global",
+    "maxErrorRate": 0
+  },
+  "operations": {
+    "G7-01 Listar todas las ordenes (sin filtro)": {
+      "scope": "G7-01 Listar todas las ordenes (sin filtro)",
+      "maxErrorRate": 0
+    }
+  }
+}

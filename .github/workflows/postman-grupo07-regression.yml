@@ -1,16 +1,20 @@
-name: Postman Regression - Grupo 07 Carrito (con reporte PDF en Python)
+name: Postman Regression - Grupo 07 Carrito Ecommerce (con reporte PDF en Python)
 
 on:
   push:
     branches: ["main"]
     paths:
-      - "postman/grupo-07-carrito-ecommerce.postman_collection.json"
+      - "postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json"
       - ".github/workflows/postman-grupo07-regression.yml"
+      - "skills/postman-newman-skill/reporter/newman_report.py"
+      - "skills/postman-newman-skill/reporter/requirements.txt"
   pull_request:
     branches: ["main"]
     paths:
-      - "postman/grupo-07-carrito-ecommerce.postman_collection.json"
+      - "postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json"
       - ".github/workflows/postman-grupo07-regression.yml"
+      - "skills/postman-newman-skill/reporter/newman_report.py"
+      - "skills/postman-newman-skill/reporter/requirements.txt"
   workflow_dispatch:
 
 jobs:
@@ -32,16 +36,19 @@ jobs:
           python-version: "3.11"
 
       - name: Instalar dependencias Node
-        run: npm install
+        run: npm ci
 
       - name: Instalar dependencias Python (reportlab, Pillow)
         run: pip install -r skills/postman-newman-skill/reporter/requirements.txt
 
       - name: Ejecutar regresión Postman (Newman) - Grupo 07
+        env:
+          GRUPO07_BASE_URL: ${{ vars.GRUPO07_BASE_URL }}
+          GRUPO07_API_KEY: ${{ secrets.GRUPO07_API_KEY }}
         run: >
-          npx newman run postman/grupo-07-carrito-ecommerce.postman_collection.json
-          --env-var "baseUrl=${{ vars.GRUPO07_BASE_URL }}"
-          --env-var "apiKey=${{ secrets.GRUPO07_API_KEY }}"
+          npx newman run postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json
+          --env-var "baseUrl=$GRUPO07_BASE_URL"
+          --env-var "apiKey=$GRUPO07_API_KEY"
           --delay-request 800
           --reporters cli,json
           --reporter-json-export newman/results.json
