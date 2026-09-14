@@ -5,8 +5,12 @@ pre-request/test scripts (verificacion SQL, fixtures). El sandbox limita a
 30 req/min por API key: con lotes de <=28 y pausa de 75s entre lotes, ninguna
 ventana deslizante de 60s supera el limite.
 
-Destino en repo: .github/scripts/grupo03/split_chunks.py
-Uso: python3 .github/scripts/grupo03/split_chunks.py [--src ...] [--out ...] [--cap 28]
+Convive con el workflow en .github/workflows/.
+Uso: python3 .github/workflows/split_chunks.py [--src ...] [--out ...] [--cap 28]
+
+Ademas inyecta un id estable (g03-0001, ...) en cada request: sin ids la
+correlacion lote<->ejecucion y la deduplicacion de reintentos 429 en
+merge_results.py serian ambiguas (hay nombres repetidos entre integrantes).
 """
 
 import argparse
@@ -42,6 +46,8 @@ def main():
     args = ap.parse_args()
 
     col = json.load(open(args.src, encoding="utf-8"))
+    for i, it in enumerate(walk_leaves(col["item"]), 1):
+        it.setdefault("id", f"g03-{i:04d}")
     leaves = [(it, calls_of(it)) for it in walk_leaves(col["item"])]
     total = sum(c for _, c in leaves)
     print(f"requests: {len(leaves)}, llamadas estimadas: {total}, cap/lote: {args.cap}")
