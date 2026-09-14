@@ -1,0 +1,84 @@
+newman
+
+Grupo 06 - Notificaciones y Alertas (AIQUAA)
+
+❏ S1 @happy_path - Push tras transferencia exitosa (TRX-001)
+↳ POST Crear notificacion push (TRX-001)
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/notificaciones [201 Created, 643B, 704ms]
+  ✓  Response time is less than 3000ms
+  ✓  La respuesta es application/json
+  ✓  El cuerpo es JSON parseable
+  ✓  La API no responde con error de servidor (5xx)
+  ✓  La cuota de requests no esta agotada (429 RATE_LIMITED)
+  ✓  Status 201 - notificacion creada
+  ✓  La respuesta expone el objeto data con un identificador
+  ✓  El canal entregado es push
+  ✓  La notificacion pertenece al usuario bajo prueba
+  ✓  El mensaje incluye el monto y el identificador de la transferencia
+  ✓  El asunto referencia la transferencia TRX-001
+  ✓  El estado pertenece al enum documentado
+  ✓  La notificacion nace sin leer
+  ✓  created_at usa formato date-time RFC 3339
+  ┌
+  │ '[HG06-02] El OpenAPI declara id/usuario_id como integ
+  │ er; la API responde string.'
+  └
+  ✓  HG06-02: id y usuario_id se devuelven como string pese a estar declarados integer
+  ┌
+  │ '[HG06-02] Campo activo presente en la respuesta y aus
+  │ ente del contrato publicado.'
+  └
+  ✓  HG06-02: la respuesta incluye el campo no documentado activo
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 482B, 364ms]
+  ┌
+  │ 'SQL response completa:', '{"data":[{"id":"261","usuar
+  │ io_id":"1","canal":"push","estado":"enviada"}],"rowCou
+  │ nt":1}', 'Error:', null
+  └
+  ✓  La BD confirma la fila insertada
+
+↳ GET Traer la notificacion push por id (TRX-001)
+  GET https://aiquaa-sandbox-api.vercel.app/api/v1/notificaciones/261 [200 OK, 673B, 274ms]
+  ✓  Response time is less than 3000ms
+  ✓  La respuesta es application/json
+  ✓  El cuerpo es JSON parseable
+  ✓  La API no responde con error de servidor (5xx)
+  ✓  La cuota de requests no esta agotada (429 RATE_LIMITED)
+  ✓  Status 200 - notificacion encontrada por id
+  ✓  El id devuelto coincide con el creado en el POST anterior
+  ✓  El canal sigue siendo push
+  ✓  El mensaje corresponde a TRX-001
+  ✓  La respuesta respeta el contrato Notificacion
+
+↳ GET Verificar push en el listado del usuario (TRX-001)
+  GET https://aiquaa-sandbox-api.vercel.app/api/v1/notificaciones?usuarioId=1 [200 OK, 9.02kB, 282ms]
+  ✓  Response time is less than 3000ms
+  ✓  La respuesta es application/json
+  ✓  El cuerpo es JSON parseable
+  ✓  La API no responde con error de servidor (5xx)
+  ✓  La cuota de requests no esta agotada (429 RATE_LIMITED)
+  ✓  Status 200 - listado de notificaciones
+  ✓  data es un arreglo
+  ✓  El filtro usuarioId solo devuelve notificaciones de ese usuario
+  ✓  La notificacion push creada en el paso anterior esta en el listado
+  ✓  Todo item del listado respeta el contrato Notificacion
+
+┌─────────────────────────┬─────────────────────┬────────────────────┐
+│                         │            executed │             failed │
+├─────────────────────────┼─────────────────────┼────────────────────┤
+│              iterations │                   1 │                  0 │
+├─────────────────────────┼─────────────────────┼────────────────────┤
+│                requests │                   4 │                  0 │
+├─────────────────────────┼─────────────────────┼────────────────────┤
+│            test-scripts │                   6 │                  0 │
+├─────────────────────────┼─────────────────────┼────────────────────┤
+│      prerequest-scripts │                   4 │                  0 │
+├─────────────────────────┼─────────────────────┼────────────────────┤
+│              assertions │                  37 │                  0 │
+├─────────────────────────┴─────────────────────┴────────────────────┤
+│ total run duration: 9.2s                                           │
+├────────────────────────────────────────────────────────────────────┤
+│ total data received: 9.22kB (approx)                               │
+├────────────────────────────────────────────────────────────────────┤
+│ average response time: 406ms [min: 274ms, max: 704ms, s.d.: 175ms] │
+└────────────────────────────────────────────────────────────────────┘

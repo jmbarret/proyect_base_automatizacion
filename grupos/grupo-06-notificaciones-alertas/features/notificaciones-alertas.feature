@@ -75,3 +75,10 @@ Feature: Notificaciones y Alertas
     And el sistema debe enviar una notificación por email al usuario
     And debe registrar ambos canales como entregados
 
+  @happy_path
+  Scenario: Enviar una notificación por email como canal principal después de una transferencia exitosa
+    Given el usuario tiene habilitadas las notificaciones por email como canal principal
+    And el usuario tiene una dirección de correo electrónico válida registrada
+    When se confirma una transferencia exitosa de 850000 Gs con el identificador "TRX-010"
+    Then el sistema debe enviar una notificación por email a la dirección registrada
+    And la notificación debe incluir el monto y el identificador de la transferencia

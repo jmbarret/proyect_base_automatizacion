@@ -1,0 +1,50 @@
+Evidencia SQL - Grupo 06 Notificaciones y Alertas (Semana 03)
+Endpoint: POST /api/v1/sql/select  (solo SELECT, whitelist de tablas)
+Fecha de captura: 2026-09-06 18:15 UTC
+API key redactada: <API_KEY_REDACTADA>
+
+==============================================================
+1. RF-G6-06 - El DELETE es baja logica, no borrado fisico
+==============================================================
+SQL: SELECT activo, COUNT(*) AS total FROM notificaciones GROUP BY activo ORDER BY activo
+{"data":[{"activo":false,"total":"121"},{"activo":true,"total":"37"}],"rowCount":2}
+Lectura: existen filas con activo=false. La API nunca las devuelve en GET,
+pero siguen en la base: eso distingue baja logica de borrado fisico.
+
+==============================================================
+2. HG06-03 - PATCH /leer ignora la baja logica
+==============================================================
+SQL: SELECT id, asunto, activo, leido, estado FROM notificaciones
+     WHERE activo = false AND leido = true ORDER BY id DESC LIMIT 5
+{"data":[{"id":"161","asunto":"Baja logica + lectura HG06-03","activo":false,"leido":true,"estado":"enviada"},{"id":"150","asunto":"PROBE-INCONSISTENCIA","activo":false,"leido":true,"estado":"enviada"},{"id":"148","asunto":"Entrega reprogramada 07:00 - TRX-005","activo":false,"leido":true,"estado":"enviada"},{"id":"139","asunto":"Entrega reprogramada 07:00 - TRX-005","activo":false,"leido":true,"estado":"enviada"},{"id":"130","asunto":"Entrega reprogramada 07:00 - TRX-005","activo":false,"leido":true,"estado":"enviada"}],"rowCount":5}
+Lectura: filas simultaneamente dadas de baja (activo=false) y marcadas como
+leidas (leido=true). Estado contradictorio que ningun endpoint REST expone,
+porque GET/PUT/DELETE filtran por activo=true.
+
+==============================================================
+3. RF-G6-02 - Distribucion por canal y estado
+==============================================================
+SQL: SELECT canal, estado, COUNT(*) AS total FROM notificaciones
+     WHERE activo = true GROUP BY canal, estado ORDER BY canal, estado
+{"data":[{"canal":"email","estado":"enviada","total":"12"},{"canal":"push","estado":"enviada","total":"9"},{"canal":"push","estado":"fallida","total":"3"},{"canal":"push","estado":"pendiente","total":"2"},{"canal":"sms","estado":"enviada","total":"11"}],"rowCount":5}
+Lectura: los tres canales del enum estan representados. Aparecen filas con estado
+'fallida' y 'pendiente' que provienen exclusivamente de los datos sembrados
+(scripts/seed-data.sql): RF-G6-02 establece que la API siempre crea con estado
+'enviada', y ninguna notificacion creada por la coleccion tiene otro estado.
+
+==============================================================
+4. RF-G6-01 - Total real de filas activas frente al limite de 100
+==============================================================
+SQL: SELECT COUNT(*) AS activas FROM notificaciones WHERE activo = true
+{"data":[{"activas":"37"}],"rowCount":1}
+Lectura: hay 37 filas activas frente a 121 dadas de baja. Como 37 < 100, el listado
+REST NO queda truncado y devuelve el total completo. Por eso la assertion de la
+coleccion compara contra min(total, 100) y no contra 100 fijo: sin consultar la base
+no se puede distinguir "el limite se aplica" de "hay pocos datos".
+
+==============================================================
+5. Guardrail del endpoint SQL - solo lectura
+==============================================================
+SQL: UPDATE notificaciones SET leido = true WHERE id = 1
+{"error":{"code":"VALIDATION_ERROR","message":"Only SELECT statements are allowed on this endpoint."}}
+Lectura: el endpoint rechaza toda sentencia que no sea SELECT.

@@ -1,0 +1,3634 @@
+{
+	"info": {
+		"_postman_id": "b199c74d-0e48-4cdb-846d-e744463af033",
+		"name": "Grupo 06 - Notificaciones y Alertas (AIQUAA)",
+		"description": "Coleccion de API testing del Grupo 06 - Notificaciones y Alertas.\n\nSitio bajo prueba: AIQUAA Sandbox API (https://aiquaa-sandbox-api.vercel.app)\n\nEndpoints cubiertos (5):\n- GET    /api/v1/notificaciones            (query: usuarioId, leido)\n- POST   /api/v1/notificaciones            (body: usuarioId, canal, asunto, mensaje)\n- PUT    /api/v1/notificaciones/{id}       (body: canal, asunto, mensaje)\n- PATCH  /api/v1/notificaciones/{id}/leer\n- DELETE /api/v1/notificaciones/{id}       (soft-delete, 204 sin body)\n\nRegla de negocio documentada por AIQUAA y verificada por esta coleccion:\nleido y estado NO son reemplazables por PUT; leido sigue gobernado por PATCH /{id}/leer.\n\nSemana 03 — verificacion en base de datos:\nLas carpetas usan POST /api/v1/sql/select (solo SELECT, whitelist de tablas) para confirmar\nen la base lo que la respuesta HTTP no puede demostrar: persistencia real del alta, baja\nlogica frente a borrado fisico, invariantes de leido/estado y ausencia de escritura en los\ncasos rechazados. El helper utils.sqlSelect se declara en el pre-request de la coleccion.\n\nHallazgos abiertos:\n- HG06-01: reprocesar el mismo evento crea un segundo registro. CORREGIDO en la semana 03:\n  el documento de requerimientos lo declara comportamiento esperado (\"no hay control de\n  duplicados\"), asi que el desvio esta en el escenario BDD S3, no en la API.\n- HG06-03: PATCH /{id}/leer no filtra por activo, por lo que marca como leida una\n  notificacion dada de baja. Declarado como inconsistencia real en el propio documento.\n- HG06-02: id y usuario_id se devuelven como string aunque el OpenAPI los declara integer,\n  y la respuesta incluye un campo 'activo' no documentado.\n\nRequisito de ejecucion: definir la variable de entorno apiKey. Sin ella la API responde\n401 y los tests fallan con un mensaje explicito (no con un TypeError).\n\nTodos los scripts leen el cuerpo de forma defensiva: si la respuesta no es JSON o no trae\nel campo esperado, el test falla con una assertion legible en lugar de romper el script.\n\nCada carpeta corresponde a un escenario BDD de features/notificaciones-alertas.feature.\nMatriz de trazabilidad: grupos/grupo-06-notificaciones-alertas/docs/trazabilidad-bdd-api.md\n\nLa carpeta 00 Setup limpia los datos residuales de corridas previas para que la suite sea\nre-ejecutable. Usa postman.setNextRequest, por lo que requiere ejecucion como coleccion o\ncarpeta (Runner o Newman), no request por request.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "17030914"
+	},
+	"item": [
+		{
+			"name": "00 Setup - Higiene de datos de prueba",
+			"item": [
+				{
+					"name": "GET Inventario de notificaciones de corridas previas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test('Status 200 - inventario obtenido', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('La respuesta trae el arreglo data', function () {",
+									"    pm.expect(body.data, 'La respuesta no contiene un arreglo data (revisar apiKey si el status es 401)').to.be.an('array');",
+									"});",
+									"",
+									"var prefijo = pm.collectionVariables.get('prefijoDatosPrueba');",
+									"var residuales = lista",
+									"    .filter(function (n) {",
+									"        return (n.mensaje || '').indexOf(prefijo) !== -1 || (n.asunto || '').indexOf(prefijo) !== -1;",
+									"    })",
+									"    .map(function (n) { return n.id; });",
+									"",
+									"pm.collectionVariables.set('pendientesLimpieza', JSON.stringify(residuales));",
+									"",
+									"pm.test('Inventario de datos residuales tomado', function () {",
+									"    pm.expect(residuales).to.be.an('array');",
+									"});",
+									"",
+									"if (residuales.length === 0) {",
+									"    console.log('[Setup] Sin datos residuales: el entorno ya esta limpio.');",
+									"    postman.setNextRequest('POST Crear notificacion push (TRX-001)');",
+									"} else {",
+									"    console.log('[Setup] Se descartaran ' + residuales.length + ' notificaciones residuales: ' + residuales.join(', '));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "DELETE Descartar notificacion residual",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Toma el siguiente id de la cola de limpieza antes de resolver la URL.",
+									"var cola = [];",
+									"try { cola = JSON.parse(pm.collectionVariables.get('pendientesLimpieza') || '[]'); } catch (e) { cola = []; }",
+									"if (!Array.isArray(cola)) { cola = []; }",
+									"pm.collectionVariables.set('cleanupId', cola.length ? cola.shift() : pm.collectionVariables.get('idInexistente'));",
+									"pm.collectionVariables.set('pendientesLimpieza', JSON.stringify(cola));"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('El residual queda descartado (204) o ya no existia (404)', function () {",
+									"    pm.expect([204, 404]).to.include(pm.response.code);",
+									"});",
+									"",
+									"// Bucle sobre la cola: se repite este request hasta vaciarla.",
+									"var cola = [];",
+									"try { cola = JSON.parse(pm.collectionVariables.get('pendientesLimpieza') || '[]'); } catch (e) { cola = []; }",
+									"if (Array.isArray(cola) && cola.length > 0) {",
+									"    postman.setNextRequest('DELETE Descartar notificacion residual');",
+									"} else {",
+									"    postman.setNextRequest('POST Crear notificacion push (TRX-001)');",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{cleanupId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{cleanupId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "El sandbox de AIQUAA es compartido y persistente: los registros creados por una corrida siguen presentes en la siguiente.\nEsta carpeta descarta las notificaciones residuales cuyo mensaje o asunto contiene el prefijo {{prefijoDatosPrueba}}, de modo que los conteos exactos de S2, S3, S4 y S8 sean deterministas.\nNo toca los datos semilla del laboratorio, que no usan identificadores TRX-00x.\nSi la respuesta no trae un listado (por ejemplo un 401 por falta de API key) la carpeta no rompe: informa el problema y continua hacia S1."
+		},
+		{
+			"name": "S1 @happy_path - Push tras transferencia exitosa (TRX-001)",
+			"item": [
+				{
+					"name": "POST Crear notificacion push (TRX-001)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - notificacion creada', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('La respuesta expone el objeto data con un identificador', function () {",
+									"    pm.expect(body, 'La respuesta no contiene data (revisar apiKey si el status es 401)').to.have.property('data');",
+									"    pm.expect(data.id).to.not.be.undefined;",
+									"});",
+									"",
+									"pm.test('El canal entregado es push', function () {",
+									"    pm.expect(data.canal).to.eql('push');",
+									"});",
+									"",
+									"pm.test('La notificacion pertenece al usuario bajo prueba', function () {",
+									"    pm.expect(String(data.usuario_id)).to.eql(pm.collectionVariables.get('usuarioId'));",
+									"});",
+									"",
+									"pm.test('El mensaje incluye el monto y el identificador de la transferencia', function () {",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('montoHappyPush'));",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxHappyPush'));",
+									"});",
+									"",
+									"pm.test('El asunto referencia la transferencia TRX-001', function () {",
+									"    pm.expect(data.asunto).to.be.a('string');",
+									"    pm.expect(data.asunto).to.include(pm.collectionVariables.get('trxHappyPush'));",
+									"});",
+									"",
+									"pm.test('El estado pertenece al enum documentado', function () {",
+									"    pm.expect(['enviada', 'fallida', 'pendiente']).to.include(data.estado);",
+									"});",
+									"",
+									"pm.test('La notificacion nace sin leer', function () {",
+									"    pm.expect(data.leido).to.be.a('boolean');",
+									"    pm.expect(data.leido).to.eql(false);",
+									"});",
+									"",
+									"pm.test('created_at usa formato date-time RFC 3339', function () {",
+									"    pm.expect(data.created_at).to.be.a('string');",
+									"    pm.expect(data.created_at).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+									"});",
+									"",
+									"pm.test('HG06-02: id y usuario_id se devuelven como string pese a estar declarados integer', function () {",
+									"    pm.expect(data.id).to.be.a('string');",
+									"    pm.expect(data.usuario_id).to.be.a('string');",
+									"    console.warn('[HG06-02] El OpenAPI declara id/usuario_id como integer; la API responde string.');",
+									"});",
+									"",
+									"pm.test('HG06-02: la respuesta incluye el campo no documentado activo', function () {",
+									"    pm.expect(data).to.have.property('activo');",
+									"    console.warn('[HG06-02] Campo activo presente en la respuesta y ausente del contrato publicado.');",
+									"});",
+									"",
+									"// Encadenamiento: el id se reutiliza en el GET de verificacion.",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdPush', String(data.id));",
+									"}",
+									"",
+									"// Segunda validacion: directa contra la base de datos (patron pre/post-request).",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"  const idCreado = String(data.id);",
+									"",
+									"  const sqlRequest = {",
+									"    url: pm.variables.get(\"baseUrl\") + \"/api/v1/sql/select\",",
+									"    method: \"POST\",",
+									"    header: {",
+									"      \"Content-Type\": \"application/json\",",
+									"      \"x-api-key\": pm.variables.get(\"apiKey\")",
+									"    },",
+									"    body: {",
+									"      mode: \"raw\",",
+									"      raw: JSON.stringify({",
+									"        sql: `SELECT id, usuario_id, canal, estado FROM qa_training.notificaciones WHERE id = '${idCreado}'`,",
+									"        params: []",
+									"      })",
+									"    }",
+									"  };",
+									"",
+									"  pm.sendRequest(sqlRequest, (err, res) => {",
+									"    pm.test(\"La BD confirma la fila insertada\", () => {",
+									"      if (err) throw err;",
+									"      const parsed = res.json();",
+									"      const rows = (parsed && parsed.data) || [];",
+									"      pm.expect(rows[0], \"no se encontro la notificacion en la BD\").to.not.be.undefined;",
+									"      pm.expect(String(rows[0].id)).to.eql(idCreado);",
+									"      pm.expect(rows[0].canal).to.eql(\"push\");",
+									"    });",
+									"  });",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Pre-request: sin validacion previa necesaria para este patron.",
+									"// La validacion real ocurre en el post-response, buscando la fila",
+									"// especifica por id (mas robusto que comparar conteos en una BD compartida)."
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxHappyPush}}\",\n  \"mensaje\": \"Se confirmo una transferencia por {{montoHappyPush}} Gs. Identificador: {{trxHappyPush}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Given el usuario tiene habilitadas las notificaciones push / When se confirma una transferencia exitosa de 500000 Gs con el identificador TRX-001."
+					},
+					"response": []
+				},
+				{
+					"name": "GET Traer la notificacion push por id (TRX-001)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 200 - notificacion encontrada por id', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('El id devuelto coincide con el creado en el POST anterior', function () {",
+									"    pm.expect(String(data.id)).to.eql(pm.collectionVariables.get('notifIdPush'));",
+									"});",
+									"",
+									"pm.test('El canal sigue siendo push', function () {",
+									"    pm.expect(data.canal).to.eql('push');",
+									"});",
+									"",
+									"pm.test('El mensaje corresponde a TRX-001', function () {",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxHappyPush'));",
+									"});",
+									"",
+									"pm.test('La respuesta respeta el contrato Notificacion', function () {",
+									"    pm.expect(data).to.include.keys('id', 'usuario_id', 'canal', 'asunto', 'mensaje', 'leido', 'estado', 'created_at');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdPush}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdPush}}"
+							]
+						},
+						"description": "Cobertura de endpoint: GET /api/v1/notificaciones/{id}, ausente en la version anterior de la coleccion (solo se probaba el listado). Confirma que la notificacion creada para TRX-001 puede recuperarse individualmente por id."
+					}
+				},
+				{
+					"name": "GET Verificar push en el listado del usuario (TRX-001)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test('Status 200 - listado de notificaciones', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('data es un arreglo', function () {",
+									"    pm.expect(body.data, 'La respuesta no contiene un arreglo data').to.be.an('array');",
+									"});",
+									"",
+									"pm.test('El filtro usuarioId solo devuelve notificaciones de ese usuario', function () {",
+									"    var usuarioId = pm.collectionVariables.get('usuarioId');",
+									"    lista.forEach(function (n) {",
+									"        pm.expect(String(n.usuario_id)).to.eql(usuarioId);",
+									"    });",
+									"});",
+									"",
+									"pm.test('La notificacion push creada en el paso anterior esta en el listado', function () {",
+									"    var esperado = pm.collectionVariables.get('notifIdPush');",
+									"    var encontrada = lista.filter(function (n) { return String(n.id) === esperado; })[0];",
+									"    pm.expect(encontrada, 'No se encontro la notificacion id=' + esperado).to.not.be.undefined;",
+									"    pm.expect(encontrada.canal).to.eql('push');",
+									"    pm.expect(encontrada.mensaje).to.include(pm.collectionVariables.get('trxHappyPush'));",
+									"});",
+									"",
+									"pm.test('Todo item del listado respeta el contrato Notificacion', function () {",
+									"    pm.expect(lista.length, 'El listado esta vacio: no hay nada que contrastar').to.be.above(0);",
+									"    lista.forEach(function (n) {",
+									"        pm.expect(n).to.include.keys('id', 'usuario_id', 'canal', 'asunto', 'mensaje', 'leido', 'estado', 'created_at');",
+									"        pm.expect(['push', 'email', 'sms']).to.include(n.canal);",
+									"        pm.expect(['enviada', 'fallida', 'pendiente']).to.include(n.estado);",
+									"        pm.expect(n.leido).to.be.a('boolean');",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						},
+						"description": "Then el sistema debe enviar una notificacion push al dispositivo registrado (verificado por persistencia en el listado)."
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'Enviar una notificacion push despues de una transferencia exitosa'.\nMapeo: POST /api/v1/notificaciones (canal=push) + GET /api/v1/notificaciones?usuarioId.\nThen validado: la notificacion incluye el monto y el identificador de la transferencia."
+		},
+		{
+			"name": "S6 @happy_path - SMS tras transferencia exitosa (TRX-006)",
+			"item": [
+				{
+					"name": "POST Crear notificacion SMS (TRX-006)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar data = body.data || {};\n\npm.test('Status 201 - notificacion SMS creada', function () {\n    pm.response.to.have.status(201);\n});\n\npm.test('El canal entregado es sms', function () {\n    pm.expect(data.canal).to.eql('sms');\n});\n\npm.test('El mensaje incluye el monto y el identificador de la transferencia', function () {\n    pm.expect(data.mensaje).to.be.a('string');\n    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('montoHappySms'));\n    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxHappySms'));\n});\n\npm.test('El estado pertenece al enum documentado', function () {\n    pm.expect(['enviada', 'fallida', 'pendiente']).to.include(data.estado);\n});\n\npm.test('El id generado es distinto al de la notificacion push', function () {\n    pm.expect(data.id).to.not.be.undefined;\n    pm.expect(String(data.id)).to.not.eql(pm.collectionVariables.get('notifIdPush'));\n});\n\nif (pm.response.code === 201 && data.id !== undefined) {\n    pm.collectionVariables.set('notifIdSms', String(data.id));\n}\n\npm.test('La notificacion SMS pertenece al usuario bajo prueba', function () {\n    pm.expect(String(data.usuario_id)).to.eql(pm.collectionVariables.get('usuarioId'));\n});\n\npm.test('La notificacion SMS nace sin leer', function () {\n    pm.expect(data.leido).to.be.a('boolean');\n    pm.expect(data.leido).to.eql(false);\n});\n\npm.test('created_at usa formato date-time RFC 3339', function () {\n    pm.expect(data.created_at).to.be.a('string');\n    pm.expect(data.created_at).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);\n});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"sms\",\n  \"asunto\": \"Transferencia exitosa {{trxHappySms}}\",\n  \"mensaje\": \"Se confirmo una transferencia por {{montoHappySms}} Gs. Identificador: {{trxHappySms}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Given el usuario tiene habilitadas las notificaciones por SMS y un numero valido registrado."
+					},
+					"response": []
+				},
+				{
+					"name": "GET Verificar SMS en el listado del usuario (TRX-006)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar lista = Array.isArray(body.data) ? body.data : [];\n\npm.test('Status 200', function () {\n    pm.response.to.have.status(200);\n});\n\npm.test('La notificacion SMS creada esta en el listado con canal sms', function () {\n    var esperado = pm.collectionVariables.get('notifIdSms');\n    var encontrada = lista.filter(function (n) { return String(n.id) === esperado; })[0];\n    pm.expect(encontrada, 'No se encontro la notificacion id=' + esperado).to.not.be.undefined;\n    pm.expect(encontrada.canal).to.eql('sms');\n});\n\npm.test('El registro SMS respeta el contrato Notificacion completo', function () {\n    var esperado = pm.collectionVariables.get('notifIdSms');\n    var n = lista.filter(function (x) { return String(x.id) === esperado; })[0];\n    pm.expect(n).to.include.keys('id', 'usuario_id', 'canal', 'asunto', 'mensaje', 'leido', 'estado', 'created_at');\n});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						},
+						"description": "Then el sistema debe enviar una notificacion por SMS al numero registrado."
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'Enviar una notificacion por SMS despues de una transferencia exitosa'.\nMapeo: POST /api/v1/notificaciones (canal=sms) + GET de verificacion."
+		},
+		{
+			"name": "S8 @alternative_path - Multicanal push + email (TRX-009)",
+			"item": [
+				{
+					"name": "POST Canal push multicanal (TRX-009)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar data = body.data || {};\n\npm.test('Status 201 - canal push creado', function () {\n    pm.response.to.have.status(201);\n});\n\npm.test('El canal es push y refiere a TRX-009', function () {\n    pm.expect(data.canal).to.eql('push');\n    pm.expect(data.mensaje).to.be.a('string');\n    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxMulticanal'));\n});\n\nif (pm.response.code === 201 && data.id !== undefined) {\n    pm.collectionVariables.set('notifIdMulticanalPush', String(data.id));\n}\n\npm.test('La entrega pertenece al usuario bajo prueba', function () {\n    pm.expect(String(data.usuario_id)).to.eql(pm.collectionVariables.get('usuarioId'));\n});\n\npm.test('La entrega nace sin leer', function () {\n    pm.expect(data.leido).to.eql(false);\n});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxMulticanal}}\",\n  \"mensaje\": \"Se confirmo una transferencia por {{montoMulticanal}} Gs. Identificador: {{trxMulticanal}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Canal email multicanal (TRX-009)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - canal email creado', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('El canal es email y refiere a TRX-009', function () {",
+									"    pm.expect(data.canal).to.eql('email');",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxMulticanal'));",
+									"});",
+									"",
+									"pm.test('El id del canal email difiere del id del canal push', function () {",
+									"    pm.expect(data.id).to.not.be.undefined;",
+									"    pm.expect(String(data.id)).to.not.eql(pm.collectionVariables.get('notifIdMulticanalPush'));",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdMulticanalEmail', String(data.id));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"email\",\n  \"asunto\": \"Transferencia exitosa {{trxMulticanal}}\",\n  \"mensaje\": \"Se confirmo una transferencia por {{montoMulticanal}} Gs. Identificador: {{trxMulticanal}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Verificar ambos canales entregados (TRX-009)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar lista = Array.isArray(body.data) ? body.data : [];\nvar trx = pm.collectionVariables.get('trxMulticanal');\nvar deLaTrx = lista.filter(function (n) { return (n.mensaje || '').indexOf(trx) !== -1; });\n\npm.test('Status 200', function () {\n    pm.response.to.have.status(200);\n});\n\npm.test('Existen exactamente dos entregas registradas para TRX-009', function () {\n    pm.expect(deLaTrx.length).to.eql(2);\n});\n\npm.test('Los canales registrados para TRX-009 son push y email', function () {\n    var canales = deLaTrx.map(function (n) { return n.canal; });\n    pm.expect(canales).to.include('push');\n    pm.expect(canales).to.include('email');\n});\n\npm.test('Ambos canales quedan en un estado de entrega valido', function () {\n    var ids = [\n        pm.collectionVariables.get('notifIdMulticanalPush'),\n        pm.collectionVariables.get('notifIdMulticanalEmail')\n    ];\n    ids.forEach(function (id) {\n        var n = lista.filter(function (x) { return String(x.id) === id; })[0];\n        pm.expect(n, 'Falta la notificacion id=' + id).to.not.be.undefined;\n        pm.expect(['enviada', 'pendiente']).to.include(n.estado);\n    });\n});\n\npm.test('Ambas entregas de TRX-009 respetan el contrato Notificacion completo', function () {\n    deLaTrx.forEach(function (n) {\n        pm.expect(n).to.include.keys('id', 'usuario_id', 'canal', 'asunto', 'mensaje', 'leido', 'estado', 'created_at');\n    });\n});",
+									"",
+									"// --- Semana 03: verificacion en base de datos ---",
+									"// El listado REST esta limitado a 100 registros; el COUNT sobre la base es la fuente de verdad.",
+									"pm.sendRequest(",
+									"    utils.sqlSelect(",
+									"        \"SELECT canal, COUNT(*) AS total FROM notificaciones WHERE activo = true AND mensaje LIKE $1 GROUP BY canal ORDER BY canal\",",
+									"        [\"%\" + pm.collectionVariables.get(\"trxMulticanal\") + \"%\"],",
+									"    ),",
+									"    function (err, res) {",
+									"        pm.test(\"SQL: TRX-009 tiene exactamente una entrega activa por canal (push y email)\", function () {",
+									"            pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"            var filas = utils.filas(res);",
+									"            var porCanal = {};",
+									"            filas.forEach(function (f) { porCanal[f.canal] = Number(f.total); });",
+									"            pm.expect(porCanal.push, \"falta la entrega push en la base\").to.eql(1);",
+									"            pm.expect(porCanal.email, \"falta la entrega email en la base\").to.eql(1);",
+									"            pm.expect(porCanal.sms, \"TRX-009 no debe generar SMS\").to.be.undefined;",
+									"        });",
+									"    },",
+									");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						},
+						"description": "Then el sistema debe enviar push y email / And debe registrar ambos canales como entregados."
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'Enviar notificaciones por multiples canales segun las preferencias del usuario'.\nMapeo: dos POST (push y email) sobre la misma transferencia + GET que verifica ambos canales registrados como entregados."
+		},
+		{
+			"name": "S4 @alternative_path - Email de respaldo por token vencido (TRX-004)",
+			"item": [
+				{
+					"name": "POST Intento inicial por push (TRX-004)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - intento push registrado', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('El intento inicial usa el canal push', function () {",
+									"    pm.expect(data.canal).to.eql('push');",
+									"});",
+									"",
+									"pm.test('El mensaje conserva monto e identificador TRX-004', function () {",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('montoRespaldoEmail'));",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxRespaldoEmail'));",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdRespaldo', String(data.id));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxRespaldoEmail}}\",\n  \"mensaje\": \"Se confirmo una transferencia por {{montoRespaldoEmail}} Gs. Identificador: {{trxRespaldoEmail}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Given el usuario tiene un dispositivo registrado con un token vencido."
+					},
+					"response": []
+				},
+				{
+					"name": "PUT Conmutar al canal de respaldo email (TRX-004)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 200 - notificacion reemplazada', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('El canal fue reemplazado por email', function () {",
+									"    pm.expect(data.canal).to.eql('email');",
+									"});",
+									"",
+									"pm.test('El id de la entrega se conserva tras el PUT', function () {",
+									"    pm.expect(data.id).to.not.be.undefined;",
+									"    pm.expect(String(data.id)).to.eql(pm.collectionVariables.get('notifIdRespaldo'));",
+									"});",
+									"",
+									"pm.test('El asunto registra el fallo del canal push', function () {",
+									"    pm.expect(data.asunto).to.be.a('string');",
+									"    pm.expect(data.asunto).to.include('push fallido');",
+									"});",
+									"",
+									"pm.test('El mensaje sigue trazando la transferencia TRX-004', function () {",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxRespaldoEmail'));",
+									"});",
+									"",
+									"pm.test('El usuario destinatario no cambia', function () {",
+									"    pm.expect(String(data.usuario_id)).to.eql(pm.collectionVariables.get('usuarioId'));",
+									"});",
+									"",
+									"pm.test('created_at no se altera: es la misma entrega, no una nueva', function () {",
+									"    pm.expect(data.created_at).to.be.a('string');",
+									"    pm.expect(data.created_at).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+									"});",
+									"",
+									"// --- Semana 03: verificacion en base de datos (RF-G6-05) ---",
+									"// La regla \"leido y estado no forman parte del reemplazo\" solo se puede probar de verdad",
+									"// mirando la fila: el JSON de respuesta podria estar armado en memoria sin reflejar la BD.",
+									"if (pm.response.code === 200) {",
+									"    pm.sendRequest(",
+									"        utils.sqlSelect(",
+									"            \"SELECT id, canal, asunto, leido, estado, activo FROM notificaciones WHERE id = $1\",",
+									"            [pm.collectionVariables.get(\"notifIdRespaldo\")],",
+									"        ),",
+									"        function (err, res) {",
+									"            pm.test(\"SQL: el PUT cambio el canal a email sin alterar leido ni estado\", function () {",
+									"                pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"                var fila = utils.filas(res)[0];",
+									"                pm.expect(fila, \"la fila no existe en la base\").to.not.be.undefined;",
+									"                pm.expect(fila.canal, \"el canal debio conmutarse a email\").to.eql(\"email\");",
+									"                pm.expect(fila.leido, \"RF-G6-05: el PUT no marca como leida\").to.eql(false);",
+									"                pm.expect(fila.estado, \"RF-G6-05: el PUT no cambia el estado de envio\").to.eql(\"enviada\");",
+									"                pm.expect(fila.activo).to.eql(true);",
+									"            });",
+									"        },",
+									"    );",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"canal\": \"email\",\n  \"asunto\": \"Respaldo por push fallido - {{trxRespaldoEmail}}\",\n  \"mensaje\": \"Push no entregado por token vencido. Se confirmo una transferencia por {{montoRespaldoEmail}} Gs. Identificador: {{trxRespaldoEmail}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdRespaldo}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdRespaldo}}"
+							]
+						},
+						"description": "Then el sistema no debe entregar la notificacion push por el token vencido / And el sistema debe enviar una notificacion por email al usuario."
+					},
+					"response": []
+				},
+				{
+					"name": "GET Verificar el respaldo registrado como email (TRX-004)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"var trx = pm.collectionVariables.get('trxRespaldoEmail');",
+									"",
+									"pm.test('Status 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('La entrega de TRX-004 quedo registrada en el canal email', function () {",
+									"    var esperado = pm.collectionVariables.get('notifIdRespaldo');",
+									"    var n = lista.filter(function (x) { return String(x.id) === esperado; })[0];",
+									"    pm.expect(n, 'No se encontro la notificacion id=' + esperado).to.not.be.undefined;",
+									"    pm.expect(n.canal).to.eql('email');",
+									"});",
+									"",
+									"pm.test('No queda ninguna entrega push activa para TRX-004', function () {",
+									"    var pushDeLaTrx = lista.filter(function (n) {",
+									"        return (n.mensaje || '').indexOf(trx) !== -1 && n.canal === 'push';",
+									"    });",
+									"    pm.expect(pushDeLaTrx.length).to.eql(0);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						},
+						"description": "And debe registrar el canal push como fallido y el email como entregado."
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'Usar email como canal de respaldo cuando el push no puede entregarse'.\nMapeo: POST canal=push (intento inicial) + PUT /api/v1/notificaciones/{id} que reemplaza el canal por email (conmutacion al canal de respaldo) + GET de verificacion.\nEl id se conserva, lo que evidencia que se trata de la misma entrega redirigida y no de una notificacion nueva."
+		},
+		{
+			"name": "S2 @negative - Canal desactivado por preferencia (TRX-002)",
+			"item": [
+				{
+					"name": "POST Canal fuera del enum debe ser rechazado (TRX-002)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 400 - body invalido', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('La respuesta expone el objeto error del contrato ErrorResponse', function () {",
+									"    pm.expect(body).to.have.property('error');",
+									"    pm.expect(error).to.have.property('code');",
+									"    pm.expect(error).to.have.property('message');",
+									"});",
+									"",
+									"pm.test('El codigo de error es VALIDATION_ERROR', function () {",
+									"    pm.expect(error.code).to.eql('VALIDATION_ERROR');",
+									"});",
+									"",
+									"pm.test('El detalle del error senala el campo canal y el valor rechazado', function () {",
+									"    pm.expect(error.details).to.be.a('string');",
+									"    pm.expect(error.details).to.include('canal');",
+									"    pm.expect(error.details).to.include(pm.collectionVariables.get('canalNoSoportado'));",
+									"});",
+									"",
+									"pm.test('No se creo ninguna notificacion (la respuesta no trae data)', function () {",
+									"    pm.expect(body).to.not.have.property('data');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"{{canalNoSoportado}}\",\n  \"asunto\": \"Transferencia exitosa {{trxCanalDesactivado}}\",\n  \"mensaje\": \"Se confirmo una transferencia por 500000 Gs. Identificador: {{trxCanalDesactivado}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Given el usuario tiene deshabilitadas las notificaciones push (canal no admitido por el contrato)."
+					},
+					"response": []
+				},
+				{
+					"name": "POST Alta previa al descarte por preferencia (TRX-002)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - notificacion creada antes de aplicar la preferencia', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('La notificacion creada trae identificador', function () {",
+									"    pm.expect(data.id).to.not.be.undefined;",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdCanalOmitido', String(data.id));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxCanalDesactivado}}\",\n  \"mensaje\": \"Se confirmo una transferencia por 500000 Gs. Identificador: {{trxCanalDesactivado}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "When se confirma una transferencia exitosa de 500000 Gs con el identificador TRX-002."
+					},
+					"response": []
+				},
+				{
+					"name": "DELETE Omitir el canal push por preferencia (TRX-002)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 204 - soft-delete aplicado', function () {",
+									"    pm.response.to.have.status(204);",
+									"});",
+									"",
+									"pm.test('La respuesta 204 no devuelve cuerpo', function () {",
+									"    pm.expect(pm.response.text()).to.have.lengthOf(0);",
+									"});",
+									"",
+									"// --- Semana 03: verificacion en base de datos (RF-G6-06) ---",
+									"// Esta es la verificacion que REST no puede dar: el endpoint devuelve 204 y la fila",
+									"// desaparece de los listados, pero el requerimiento exige que NO se borre fisicamente.",
+									"// Solo el SELECT distingue \"baja logica\" de \"borrado\".",
+									"if (pm.response.code === 204) {",
+									"    pm.sendRequest(",
+									"        utils.sqlSelect(",
+									"            \"SELECT id, activo, leido, estado FROM notificaciones WHERE id = $1\",",
+									"            [pm.collectionVariables.get(\"notifIdCanalOmitido\")],",
+									"        ),",
+									"        function (err, res) {",
+									"            pm.test(\"SQL: el DELETE es baja logica, la fila sigue en la base con activo=false\", function () {",
+									"                pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"                var filas = utils.filas(res);",
+									"                pm.expect(filas.length, \"la fila fue borrada fisicamente: viola RF-G6-06\").to.eql(1);",
+									"                pm.expect(filas[0].activo, \"la baja logica debe dejar activo en false\").to.eql(false);",
+									"            });",
+									"        },",
+									"    );",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdCanalOmitido}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdCanalOmitido}}"
+							]
+						},
+						"description": "Then el sistema no debe enviar una notificacion push al usuario / And debe registrar que el canal fue omitido por preferencia del usuario."
+					},
+					"response": []
+				},
+				{
+					"name": "GET El usuario no recibe la notificacion omitida (TRX-002)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test('Status 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('La notificacion omitida ya no figura en el listado del usuario', function () {",
+									"    pm.expect(body.data, 'La respuesta no contiene un arreglo data').to.be.an('array');",
+									"    var omitida = pm.collectionVariables.get('notifIdCanalOmitido');",
+									"    var ids = lista.map(function (n) { return String(n.id); });",
+									"    pm.expect(ids).to.not.include(omitida);",
+									"});",
+									"",
+									"pm.test('No queda ninguna entrega activa para TRX-002', function () {",
+									"    var trx = pm.collectionVariables.get('trxCanalDesactivado');",
+									"    var deLaTrx = lista.filter(function (n) { return (n.mensaje || '').indexOf(trx) !== -1; });",
+									"    pm.expect(deLaTrx.length).to.eql(0);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'No enviar una notificacion push cuando el canal esta desactivado'.\nMapeo en dos frentes:\n1) Control de contrato: un canal fuera del enum push|email|sms debe rechazarse con 400 VALIDATION_ERROR.\n2) Supresion de la entrega: DELETE /api/v1/notificaciones/{id} (soft-delete) deja al usuario sin la notificacion push, verificado por el GET posterior."
+		},
+		{
+			"name": "S7 @negative - Datos obligatorios invalidos en SMS (TRX-007)",
+			"item": [
+				{
+					"name": "POST SMS sin campo mensaje debe fallar (TRX-007)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 400 - falta un campo requerido', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('El codigo de error es VALIDATION_ERROR', function () {",
+									"    pm.expect(error.code).to.eql('VALIDATION_ERROR');",
+									"});",
+									"",
+									"pm.test('El mensaje de error no esta vacio', function () {",
+									"    pm.expect(error.message).to.be.a('string');",
+									"    pm.expect(error.message.length).to.be.above(0);",
+									"});",
+									"",
+									"pm.test('El detalle senala el campo mensaje como requerido', function () {",
+									"    pm.expect(error.details).to.be.a('string');",
+									"    pm.expect(error.details).to.include('mensaje');",
+									"    pm.expect(error.details).to.include('Required');",
+									"});",
+									"",
+									"pm.test('El intento no genera una notificacion entregada', function () {",
+									"    pm.expect(body).to.not.have.property('data');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"sms\",\n  \"asunto\": \"Transferencia exitosa {{trxSmsInvalido}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Then el sistema no debe entregar la notificacion por SMS."
+					},
+					"response": []
+				},
+				{
+					"name": "POST SMS con usuarioId invalido debe fallar (TRX-007)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 400 - usuarioId con tipo invalido', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('El codigo de error es VALIDATION_ERROR', function () {",
+									"    pm.expect(error.code).to.eql('VALIDATION_ERROR');",
+									"});",
+									"",
+									"pm.test('El detalle senala el campo usuarioId', function () {",
+									"    pm.expect(error.details).to.be.a('string');",
+									"    pm.expect(error.details).to.include('usuarioId');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": \"telefono-invalido\",\n  \"canal\": \"sms\",\n  \"asunto\": \"Transferencia exitosa {{trxSmsInvalido}}\",\n  \"mensaje\": \"Se confirmo una transferencia por 600000 Gs. Identificador: {{trxSmsInvalido}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "And debe registrar el intento de entrega como fallido."
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'No enviar una notificacion por SMS cuando el numero de telefono es invalido'.\nMapeo parcial: la API no recibe el numero de telefono. Se valida el control de campos obligatorios (mensaje ausente y usuarioId con tipo invalido) que impide generar la entrega."
+		},
+		{
+			"name": "S3 @edge_case - Reproceso del mismo evento (TRX-003)",
+			"item": [
+				{
+					"name": "POST Primer procesamiento del evento (TRX-003)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - primera notificacion creada', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('La notificacion refiere a TRX-003', function () {",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxDuplicado'));",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdDuplicado1', String(data.id));",
+									"    pm.collectionVariables.set('notifIdDuplicado2', '');",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxDuplicado}}\",\n  \"mensaje\": \"Se confirmo una transferencia por 500000 Gs. Identificador: {{trxDuplicado}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Given existe una transferencia exitosa con el identificador TRX-003."
+					},
+					"response": []
+				},
+				{
+					"name": "POST Reproceso del mismo evento (TRX-003)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"var error = body.error || {};",
+									"var primero = pm.collectionVariables.get('notifIdDuplicado1');",
+									"",
+									"pm.test('El reproceso es resuelto por la API sin error de servidor', function () {",
+									"    pm.expect([200, 201, 409]).to.include(pm.response.code);",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdDuplicado2', String(data.id));",
+									"}",
+									"",
+									"pm.test('RF-G6-02: el reproceso se acepta y se registra por separado (sin control de duplicados)', function () {",
+									"    if (pm.response.code === 409) {",
+									"        // Solo ocurriria si la API agregara control de duplicados en el futuro.",
+									"        pm.expect(error.code).to.eql('CONFLICT');",
+									"    } else {",
+									"        // Comportamiento especificado y verificado: se crea un segundo registro.",
+									"        pm.expect(data.id, 'El reproceso no devolvio un identificador').to.not.be.undefined;",
+									"        pm.expect(String(data.id)).to.not.eql(primero);",
+									"        console.warn('[HG06-01] Comportamiento esperado por RF-G6-02: ids ' + primero + ' y ' + data.id + ' para el mismo evento. El escenario BDD S3 asume una unicidad que la API no implementa.');",
+									"    }",
+									"});",
+									"",
+									"// --- Semana 03: verificacion en base de datos ---",
+									"// El documento de requerimientos (criterios de aceptacion de RF-G6-02) dice explicitamente:",
+									"// \"Al crear dos notificaciones identicas seguidas, ambas son aceptadas y se registran por",
+									"// separado: no hay control de duplicados\". El COUNT documenta ese comportamiento.",
+									"pm.sendRequest(",
+									"    utils.sqlSelect(",
+									"        \"SELECT COUNT(*) AS total FROM notificaciones WHERE activo = true AND mensaje LIKE $1\",",
+									"        [\"%\" + pm.collectionVariables.get(\"trxDuplicado\") + \"%\"],",
+									"    ),",
+									"    function (err, res) {",
+									"        pm.test(\"SQL: el reproceso deja dos filas activas (RF-G6-02: sin control de duplicados)\", function () {",
+									"            pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"            var total = Number((utils.filas(res)[0] || {}).total);",
+									"            pm.expect(total, \"se esperaban 2 registros para el evento reprocesado\").to.eql(2);",
+									"        });",
+									"    },",
+									");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxDuplicado}}\",\n  \"mensaje\": \"Se confirmo una transferencia por 500000 Gs. Identificador: {{trxDuplicado}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "When el sistema procesa dos veces el evento de la transferencia TRX-003."
+					},
+					"response": []
+				},
+				{
+					"name": "DELETE Descartar la entrega duplicada (TRX-003)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Si la API rechazo el reproceso (409) no hay duplicado que descartar:",
+									"// se reusa el id original para que el DELETE siga siendo un request valido.",
+									"if (!pm.collectionVariables.get('notifIdDuplicado2')) {",
+									"    pm.collectionVariables.set('notifIdDuplicado2', pm.collectionVariables.get('notifIdDuplicado1') || pm.collectionVariables.get('idInexistente'));",
+									"    console.warn('[HG06-01] No hubo duplicado: la API aplico idempotencia en el reproceso.');",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 204 - entrega duplicada descartada', function () {",
+									"    pm.response.to.have.status(204);",
+									"});",
+									"",
+									"pm.test('La respuesta 204 no devuelve cuerpo', function () {",
+									"    pm.expect(pm.response.text()).to.have.lengthOf(0);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdDuplicado2}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdDuplicado2}}"
+							]
+						},
+						"description": "Then el usuario debe recibir una sola notificacion push."
+					},
+					"response": []
+				},
+				{
+					"name": "GET Un unico registro de entrega para TRX-003",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"var trx = pm.collectionVariables.get('trxDuplicado');",
+									"var registros = lista.filter(function (n) { return (n.mensaje || '').indexOf(trx) !== -1; });",
+									"",
+									"pm.test('Status 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Debe existir un unico registro de entrega asociado a TRX-003', function () {",
+									"    pm.expect(registros.length).to.eql(1);",
+									"});",
+									"",
+									"pm.test('El registro sobreviviente es el del primer procesamiento', function () {",
+									"    pm.expect(registros[0], 'No quedo ningun registro para ' + trx).to.not.be.undefined;",
+									"    pm.expect(String(registros[0].id)).to.eql(pm.collectionVariables.get('notifIdDuplicado1'));",
+									"    pm.expect(registros[0].canal).to.eql('push');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						},
+						"description": "And debe existir un unico registro de entrega asociado al identificador TRX-003."
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'Evitar notificaciones duplicadas ante el reprocesamiento de un evento'.\nMapeo: POST del evento, POST del reproceso, DELETE (soft-delete) del duplicado y GET que confirma un unico registro de entrega para TRX-003.\n\nCORRECCION semana 03 (HG06-01): el documento de requerimientos funcionales v1.0 declara la ausencia\nde control de duplicados como comportamiento ESPERADO — criterio de aceptacion de RF-G6-02: \"Al crear\ndos notificaciones identicas seguidas, ambas son aceptadas y se registran por separado\". Por lo tanto\nel desvio no esta en la API sino en el escenario BDD S3, que asume una regla de unicidad que el modulo\nnunca ofrecio. La carpeta documenta el comportamiento real y aplica la deduplicacion del lado del\nconsumidor (DELETE del duplicado), que es lo unico que la API permite hoy."
+		},
+		{
+			"name": "S5 @edge_case - Entrega diferida por horario silencioso (TRX-005)",
+			"item": [
+				{
+					"name": "POST Notificacion generada en horario silencioso (TRX-005)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - notificacion registrada', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('La notificacion nace sin leer', function () {",
+									"    pm.expect(data.leido).to.eql(false);",
+									"});",
+									"",
+									"pm.test('El estado permite diferir o entregar', function () {",
+									"    pm.expect(['pendiente', 'enviada']).to.include(data.estado);",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdDiferida', String(data.id));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Transferencia exitosa {{trxHorarioSilencioso}}\",\n  \"mensaje\": \"Se confirmo una transferencia por 500000 Gs a las 23:30. Identificador: {{trxHorarioSilencioso}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "When se confirma una transferencia exitosa con el identificador TRX-005 a las 23:30."
+					},
+					"response": []
+				},
+				{
+					"name": "GET La entrega queda pendiente durante el horario silencioso (TRX-005)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test('Status 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('El filtro leido=false solo devuelve notificaciones no leidas', function () {",
+									"    pm.expect(body.data, 'La respuesta no contiene un arreglo data').to.be.an('array');",
+									"    lista.forEach(function (n) {",
+									"        pm.expect(n.leido).to.eql(false);",
+									"    });",
+									"});",
+									"",
+									"pm.test('La notificacion diferida figura entre las pendientes', function () {",
+									"    var esperado = pm.collectionVariables.get('notifIdDiferida');",
+									"    var ids = lista.map(function (n) { return String(n.id); });",
+									"    pm.expect(ids).to.include(esperado);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}&leido=false",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								},
+								{
+									"key": "leido",
+									"value": "false"
+								}
+							]
+						},
+						"description": "Then el sistema no debe enviar la notificacion push de inmediato."
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Entrega consumida al finalizar el horario silencioso (TRX-005)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 200 - notificacion actualizada', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('La notificacion diferida queda marcada como leida', function () {",
+									"    pm.expect(data.leido).to.eql(true);",
+									"});",
+									"",
+									"pm.test('El PATCH opera sobre la misma notificacion diferida', function () {",
+									"    pm.expect(data.id).to.not.be.undefined;",
+									"    pm.expect(String(data.id)).to.eql(pm.collectionVariables.get('notifIdDiferida'));",
+									"});",
+									"",
+									"pm.test('El contenido de la notificacion no se altera al marcarla leida', function () {",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxHorarioSilencioso'));",
+									"    pm.expect(data.canal).to.eql('push');",
+									"});",
+									"",
+									"// --- Semana 03: verificacion en base de datos (RF-G6-03) ---",
+									"// Criterio de aceptacion: \"El campo estado de la notificacion no cambia al marcarla como",
+									"// leida: sigue siendo enviada\". Son dos dimensiones distintas (envio vs lectura).",
+									"if (pm.response.code === 200) {",
+									"    pm.sendRequest(",
+									"        utils.sqlSelect(",
+									"            \"SELECT id, leido, estado, activo FROM notificaciones WHERE id = $1\",",
+									"            [pm.collectionVariables.get(\"notifIdDiferida\")],",
+									"        ),",
+									"        function (err, res) {",
+									"            pm.test(\"SQL: la lectura quedo registrada y el estado de envio no cambio\", function () {",
+									"                pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"                var fila = utils.filas(res)[0];",
+									"                pm.expect(fila, \"la fila no existe en la base\").to.not.be.undefined;",
+									"                pm.expect(fila.leido, \"RF-G6-03: la notificacion debe quedar leida\").to.eql(true);",
+									"                pm.expect(fila.estado, \"RF-G6-03: estado describe el envio, no la lectura\").to.eql(\"enviada\");",
+									"            });",
+									"        },",
+									"    );",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdDiferida}}/leer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdDiferida}}",
+								"leer"
+							]
+						},
+						"description": "And el sistema debe programar la entrega para las 07:00 del dia siguiente (entrega consumida por el usuario)."
+					},
+					"response": []
+				},
+				{
+					"name": "PUT Invariante: leido y estado no son reemplazables por PUT (TRX-005)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 200 - notificacion reemplazada', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('El PUT actualiza el contenido enviado', function () {",
+									"    pm.expect(data.asunto).to.be.a('string');",
+									"    pm.expect(data.asunto).to.include('reprogramada');",
+									"});",
+									"",
+									"pm.test('El campo leido permanece en true (gobernado solo por PATCH /leer)', function () {",
+									"    pm.expect(data.leido).to.eql(true);",
+									"});",
+									"",
+									"pm.test('El campo estado no fue reemplazado por el valor fallida enviado en el body', function () {",
+									"    pm.expect(data.estado).to.not.eql('fallida');",
+									"    pm.expect(['enviada', 'pendiente']).to.include(data.estado);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"canal\": \"push\",\n  \"asunto\": \"Entrega reprogramada 07:00 - {{trxHorarioSilencioso}}\",\n  \"mensaje\": \"Entrega diferida por horario silencioso. Identificador: {{trxHorarioSilencioso}}\",\n  \"leido\": false,\n  \"estado\": \"fallida\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdDiferida}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdDiferida}}"
+							]
+						},
+						"description": "Regla AIQUAA: leido/estado no son reemplazables por PUT. El body envia leido=false y estado=fallida a proposito para comprobar que la API los ignora."
+					},
+					"response": []
+				},
+				{
+					"name": "GET La entrega ya no figura como pendiente (TRX-005)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test('Status 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('La notificacion ya consumida no aparece entre las pendientes', function () {",
+									"    pm.expect(body.data, 'La respuesta no contiene un arreglo data').to.be.an('array');",
+									"    var diferida = pm.collectionVariables.get('notifIdDiferida');",
+									"    var ids = lista.map(function (n) { return String(n.id); });",
+									"    pm.expect(ids).to.not.include(diferida);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}&leido=false",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								},
+								{
+									"key": "leido",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "BDD: 'Diferir la notificacion durante el horario silencioso del usuario'.\nMapeo: POST en horario silencioso, GET leido=false (la entrega queda pendiente para el usuario), PATCH /{id}/leer al finalizar el horario y GET leido=false que confirma que ya no esta pendiente.\nIncluye el invariante documentado por AIQUAA: PUT no reemplaza leido ni estado."
+		},
+		{
+			"name": "S9 @happy_path - Email como canal principal (TRX-010)",
+			"description": "BDD: 'Enviar una notificacion por email como canal principal despues de una transferencia exitosa'.\nMapeo: POST /api/v1/notificaciones con canal=email (RF-G6-02) + GET del listado (RF-G6-01) + verificacion en base.\nCierra el ultimo escenario del feature que no tenia request asociado.",
+			"item": [
+				{
+					"name": "POST Crear notificacion email principal (TRX-010)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test('Status 201 - notificacion email creada', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('El canal principal entregado es email', function () {",
+									"    pm.expect(data.canal).to.eql('email');",
+									"});",
+									"",
+									"pm.test('El mensaje incluye el monto y el identificador de la transferencia', function () {",
+									"    pm.expect(data.mensaje).to.be.a('string');",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('montoEmailPrincipal'));",
+									"    pm.expect(data.mensaje).to.include(pm.collectionVariables.get('trxEmailPrincipal'));",
+									"});",
+									"",
+									"pm.test('RF-G6-02: nace enviada y sin leer', function () {",
+									"    pm.expect(data.estado).to.eql('enviada');",
+									"    pm.expect(data.leido).to.eql(false);",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set('notifIdEmailPrincipal', String(data.id));",
+									"}",
+									"",
+									"// --- Verificacion en base de datos (RF-G6-02) ---",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.sendRequest(",
+									"        utils.sqlSelect(",
+									"            \"SELECT id, canal, leido, estado, activo FROM notificaciones WHERE id = $1\",",
+									"            [data.id],",
+									"        ),",
+									"        function (err, res) {",
+									"            pm.test('SQL: la notificacion email quedo persistida y activa', function () {",
+									"                pm.expect(err, 'la consulta SQL fallo').to.be.null;",
+									"                var fila = utils.filas(res)[0];",
+									"                pm.expect(fila, 'la fila no existe en la base').to.not.be.undefined;",
+									"                pm.expect(fila.canal).to.eql('email');",
+									"                pm.expect(fila.activo).to.eql(true);",
+									"                pm.expect(fila.leido).to.eql(false);",
+									"            });",
+									"        },",
+									"    );",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"email\",\n  \"asunto\": \"Transferencia exitosa {{trxEmailPrincipal}}\",\n  \"mensaje\": \"Se confirmo una transferencia por {{montoEmailPrincipal}} Gs. Identificador: {{trxEmailPrincipal}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Given el usuario tiene habilitadas las notificaciones por email como canal principal / When se confirma una transferencia exitosa de 850000 Gs con el identificador TRX-010."
+					}
+				},
+				{
+					"name": "GET Verificar el email principal en el listado (TRX-010)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test('Status 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('La notificacion email figura en el listado del titular', function () {",
+									"    var esperado = pm.collectionVariables.get('notifIdEmailPrincipal');",
+									"    var n = lista.filter(function (x) { return String(x.id) === esperado; })[0];",
+									"    pm.expect(n, 'no se encontro la notificacion id=' + esperado).to.not.be.undefined;",
+									"    pm.expect(n.canal).to.eql('email');",
+									"    pm.expect(n.mensaje).to.include(pm.collectionVariables.get('trxEmailPrincipal'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						},
+						"description": "Then el sistema debe enviar una notificacion por email a la direccion registrada."
+					}
+				}
+			]
+		},
+		{
+			"name": "RF-G6-01 @negative - Reglas del filtro y del listado",
+			"description": "Criterios de aceptacion de RF-G6-01 (documento de requerimientos v1.0):\n- El filtro leido acepta unicamente los textos true y false; leido=1 es 400 VALIDATION_ERROR.\n- usuarioId no numerico es 400 VALIDATION_ERROR.\n- Filtrar por un titular sin notificaciones devuelve 200 con data vacio.\n- El resultado se ordena por identificador ascendente y esta limitado a 100 registros.\nLa ultima regla se contrasta contra la base: el listado REST no expone el total real.",
+			"item": [
+				{
+					"name": "GET leido=1 debe ser rechazado (no se coerciona a booleano)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test(\"Status 400 - el filtro leido no acepta 1\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"El codigo de error es VALIDATION_ERROR\", function () {",
+									"    pm.expect(error.code).to.eql(\"VALIDATION_ERROR\");",
+									"});",
+									"",
+									"pm.test(\"El detalle senala el campo leido\", function () {",
+									"    pm.expect(error.details).to.be.a(\"string\");",
+									"    pm.expect(error.details).to.include(\"leido\");",
+									"});",
+									"",
+									"pm.test(\"No se devuelve ningun listado ante un filtro invalido\", function () {",
+									"    pm.expect(body).to.not.have.property(\"data\");",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}&leido=1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								},
+								{
+									"key": "leido",
+									"value": "1"
+								}
+							]
+						},
+						"description": "RF-G6-01: \"Al listar con leido=1, la respuesta es 400 VALIDATION_ERROR: el filtro no acepta otras formas del valor booleano\"."
+					}
+				},
+				{
+					"name": "GET usuarioId no numerico debe ser rechazado",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test(\"Status 400 - usuarioId debe ser un entero positivo\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"El codigo de error es VALIDATION_ERROR\", function () {",
+									"    pm.expect(error.code).to.eql(\"VALIDATION_ERROR\");",
+									"});",
+									"",
+									"pm.test(\"El detalle senala el campo usuarioId\", function () {",
+									"    pm.expect(error.details).to.be.a(\"string\");",
+									"    pm.expect(error.details).to.include(\"usuarioId\");",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId=abc",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "abc"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET titular sin notificaciones devuelve data vacio",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"",
+									"pm.test(\"Status 200 - un titular sin notificaciones no es un error\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"data es un arreglo vacio\", function () {",
+									"    pm.expect(body.data).to.be.an(\"array\");",
+									"    pm.expect(body.data.length).to.eql(0);",
+									"});",
+									"",
+									"// --- Verificacion en base de datos ---",
+									"// Confirma que el 200 vacio refleja la base y no un filtro que descarta filas existentes.",
+									"pm.sendRequest(",
+									"    utils.sqlSelect(",
+									"        \"SELECT COUNT(*) AS total FROM notificaciones WHERE usuario_id = $1 AND activo = true\",",
+									"        [pm.collectionVariables.get(\"usuarioIdInexistente\")],",
+									"    ),",
+									"    function (err, res) {",
+									"        pm.test(\"SQL: la base tampoco tiene notificaciones para ese titular\", function () {",
+									"            pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"            pm.expect(Number((utils.filas(res)[0] || {}).total)).to.eql(0);",
+									"        });",
+									"    },",
+									");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioIdInexistente}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioIdInexistente}}"
+								}
+							]
+						},
+						"description": "RF-G6-01: \"Al filtrar por un titular sin notificaciones, la respuesta es 200 con data vacio\"."
+					}
+				},
+				{
+					"name": "GET el listado respeta orden ascendente y limite de 100",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var lista = Array.isArray(body.data) ? body.data : [];",
+									"",
+									"pm.test(\"Status 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"El listado esta limitado a 100 registros\", function () {",
+									"    pm.expect(lista.length).to.be.at.most(Number(pm.collectionVariables.get(\"limiteListado\")));",
+									"});",
+									"",
+									"pm.test(\"El listado viene ordenado por id ascendente\", function () {",
+									"    var ids = lista.map(function (n) { return Number(n.id); });",
+									"    var ordenados = ids.slice().sort(function (a, b) { return a - b; });",
+									"    pm.expect(ids).to.eql(ordenados);",
+									"});",
+									"",
+									"pm.test(\"Todas las notificaciones listadas estan activas (no se listan las dadas de baja)\", function () {",
+									"    lista.forEach(function (n) {",
+									"        pm.expect(n).to.not.have.property(\"activo\", false);",
+									"    });",
+									"});",
+									"",
+									"// --- Verificacion en base de datos ---",
+									"// Si la base tiene mas de 100 filas activas, el listado debe estar truncado en exactamente 100:",
+									"// eso prueba que el limite se aplica y no es una coincidencia por pocos datos.",
+									"pm.sendRequest(",
+									"    utils.sqlSelect(\"SELECT COUNT(*) AS total FROM notificaciones WHERE activo = true\", []),",
+									"    function (err, res) {",
+									"        pm.test(\"SQL: el limite de 100 se aplica contra el total real de la base\", function () {",
+									"            pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"            var totalBase = Number((utils.filas(res)[0] || {}).total);",
+									"            var limite = Number(pm.collectionVariables.get(\"limiteListado\"));",
+									"            var esperado = Math.min(totalBase, limite);",
+									"            pm.expect(lista.length, \"el listado deberia traer min(total, 100) registros\").to.eql(esperado);",
+									"        });",
+									"    },",
+									");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "RF-G6-01: \"El resultado se ordena por identificador ascendente y esta limitado a 100 registros\" y \"Sin filtros, devuelve las notificaciones de todos los titulares\"."
+					}
+				}
+			]
+		},
+		{
+			"name": "RF-G6-02 @negative - Validaciones de alta",
+			"description": "Criterios de aceptacion de RF-G6-02 no cubiertos en la semana 02:\n- Asunto vacio es 400 VALIDATION_ERROR (asunto y mensaje deben tener al menos un caracter).\n- Un destinatario inexistente falla por violacion de clave foranea y no registra nada.\nEl segundo caso se cierra con un COUNT sobre la base: el criterio exige comprobar que NO se inserto.",
+			"item": [
+				{
+					"name": "POST asunto vacio debe ser rechazado",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test(\"Status 400 - el asunto no puede estar vacio\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"El codigo de error es VALIDATION_ERROR\", function () {",
+									"    pm.expect(error.code).to.eql(\"VALIDATION_ERROR\");",
+									"});",
+									"",
+									"pm.test(\"El detalle senala el campo asunto\", function () {",
+									"    pm.expect(error.details).to.be.a(\"string\");",
+									"    pm.expect(error.details).to.include(\"asunto\");",
+									"});",
+									"",
+									"pm.test(\"No se creo ninguna notificacion\", function () {",
+									"    pm.expect(body).to.not.have.property(\"data\");",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"\",\n  \"mensaje\": \"Alta con asunto vacio\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "RF-G6-02: \"Al crear con asunto vacio, la respuesta es 400 VALIDATION_ERROR\"."
+					}
+				},
+				{
+					"name": "POST destinatario inexistente no debe registrar nada",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test(\"Status 400 - el destinatario debe existir\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"El codigo de error es VALIDATION_ERROR\", function () {",
+									"    pm.expect(error.code).to.eql(\"VALIDATION_ERROR\");",
+									"});",
+									"",
+									"pm.test(\"El mensaje refleja la violacion de clave foranea\", function () {",
+									"    pm.expect(String(error.message).toLowerCase()).to.include(\"foreign key\");",
+									"});",
+									"",
+									"// --- Verificacion en base de datos ---",
+									"// El criterio de aceptacion pide comprobar que \"no se registra ninguna notificacion\".",
+									"// Sin SQL solo se puede afirmar que la API respondio 400, no que la base quedo intacta.",
+									"pm.sendRequest(",
+									"    utils.sqlSelect(",
+									"        \"SELECT COUNT(*) AS total FROM notificaciones WHERE asunto = $1\",",
+									"        [pm.collectionVariables.get(\"asuntoAltaInvalida\")],",
+									"    ),",
+									"    function (err, res) {",
+									"        pm.test(\"SQL: el alta rechazada no dejo ninguna fila en la base\", function () {",
+									"            pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"            pm.expect(Number((utils.filas(res)[0] || {}).total)).to.eql(0);",
+									"        });",
+									"    },",
+									");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioIdInexistente}},\n  \"canal\": \"push\",\n  \"asunto\": \"{{asuntoAltaInvalida}}\",\n  \"mensaje\": \"Alta para un titular que no existe\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "RF-G6-02: \"Al crear para un usuarioId inexistente, la respuesta es 400 VALIDATION_ERROR y no se registra ninguna notificacion\"."
+					}
+				}
+			]
+		},
+		{
+			"name": "HG06-03 @edge_case - PATCH /leer ignora la baja logica",
+			"description": "El documento de requerimientos declara esta inconsistencia como real y no intencional:\n\"PATCH .../leer no filtra por activo = true (...). Un recurso dado de baja con el nuevo DELETE\ndeja de aparecer en GET, pero sigue pudiendo leerse a traves de su accion dedicada — una\ninconsistencia real del sandbox, no un comportamiento a asumir como intencional\".\n\nLa carpeta la reproduce de punta a punta y la evidencia con SQL: la fila queda simultaneamente\ndada de baja (activo=false) y marcada como leida (leido=true), un estado que ningun listado\nde la API puede mostrar.",
+			"item": [
+				{
+					"name": "POST Crear la notificacion que se dara de baja",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test(\"Status 201 - notificacion creada\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Nace activa, sin leer y enviada\", function () {",
+									"    pm.expect(data.leido).to.eql(false);",
+									"    pm.expect(data.estado).to.eql(\"enviada\");",
+									"});",
+									"",
+									"if (pm.response.code === 201 && data.id !== undefined) {",
+									"    pm.collectionVariables.set(\"notifIdBajaLeida\", String(data.id));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Baja logica + lectura HG06-03\",\n  \"mensaje\": \"Notificacion para reproducir la inconsistencia HG06-03\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						}
+					}
+				},
+				{
+					"name": "DELETE Dar de baja la notificacion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Status 204 - baja logica aplicada\", function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdBajaLeida}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdBajaLeida}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Tras la baja el detalle responde 404",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test(\"Status 404 - RF-G6-04 deja de verla tras la baja\", function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test(\"El codigo de error es NOT_FOUND\", function () {",
+									"    pm.expect(error.code).to.eql(\"NOT_FOUND\");",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdBajaLeida}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdBajaLeida}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH HG06-03: la notificacion dada de baja igual se deja marcar como leida",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var data = body.data || {};",
+									"",
+									"pm.test(\"HG06-03: PATCH /leer responde 200 sobre una notificacion dada de baja\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"HG06-03: la respuesta expone la fila con activo=false y leido=true a la vez\", function () {",
+									"    pm.expect(data.leido).to.eql(true);",
+									"    pm.expect(data.activo, \"el endpoint devuelve la fila dada de baja\").to.eql(false);",
+									"    console.warn(\"[HG06-03] PATCH /leer no filtra por activo: la notificacion \" + data.id +",
+									"        \" quedo leida pese a estar dada de baja y ser invisible para GET.\");",
+									"});",
+									"",
+									"// --- Verificacion en base de datos ---",
+									"// Prueba definitiva del hallazgo: un unico SELECT muestra el estado contradictorio",
+									"// que la API nunca expone en un listado, porque todos filtran por activo = true.",
+									"pm.sendRequest(",
+									"    utils.sqlSelect(",
+									"        \"SELECT id, activo, leido, estado FROM notificaciones WHERE id = $1\",",
+									"        [pm.collectionVariables.get(\"notifIdBajaLeida\")],",
+									"    ),",
+									"    function (err, res) {",
+									"        pm.test(\"SQL: la fila persiste dada de baja y leida al mismo tiempo\", function () {",
+									"            pm.expect(err, \"la consulta SQL fallo\").to.be.null;",
+									"            var fila = utils.filas(res)[0];",
+									"            pm.expect(fila, \"la fila deberia seguir en la base tras la baja logica\").to.not.be.undefined;",
+									"            pm.expect(fila.activo, \"sigue dada de baja\").to.eql(false);",
+									"            pm.expect(fila.leido, \"y sin embargo quedo marcada como leida\").to.eql(true);",
+									"            pm.expect(fila.estado, \"el estado de envio no cambia\").to.eql(\"enviada\");",
+									"        });",
+									"    },",
+									");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdBajaLeida}}/leer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdBajaLeida}}",
+								"leer"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "CONTRATO @negative - Recursos inexistentes (404)",
+			"item": [
+				{
+					"name": "PUT Notificacion inexistente debe responder 404",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 404 - recurso no encontrado', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('El codigo de error es NOT_FOUND', function () {",
+									"    pm.expect(error.code).to.eql('NOT_FOUND');",
+									"});",
+									"",
+									"pm.test('No se devuelve data para un recurso inexistente', function () {",
+									"    pm.expect(body).to.not.have.property('data');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"canal\": \"email\",\n  \"asunto\": \"Notificacion inexistente\",\n  \"mensaje\": \"Intento de reemplazo sobre un id que no existe\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Marcar leida una notificacion inexistente debe responder 404",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 404 - recurso no encontrado', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('El codigo de error es NOT_FOUND', function () {",
+									"    pm.expect(error.code).to.eql('NOT_FOUND');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}/leer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}",
+								"leer"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Notificacion inexistente debe responder 404",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 404 - recurso no encontrado', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('El codigo de error es NOT_FOUND', function () {",
+									"    pm.expect(error.code).to.eql('NOT_FOUND');",
+									"});",
+									"",
+									"pm.test('No se devuelve data para un recurso inexistente', function () {",
+									"    pm.expect(body).to.not.have.property('data');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}"
+							]
+						},
+						"description": "Cobertura de endpoint: GET /api/v1/notificaciones/{id} sobre un id inexistente. Completa la simetria con el 404 ya probado en PUT/PATCH/DELETE de esta misma carpeta."
+					}
+				},
+				{
+					"name": "DELETE Notificacion inexistente debe responder 404",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 404 - recurso no encontrado', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('El codigo de error es NOT_FOUND', function () {",
+									"    pm.expect(error.code).to.eql('NOT_FOUND');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Cuerpo JSON malformado debe responder 400",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test(\"Status 400 - JSON invalido\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"El mensaje es exactamente Invalid JSON body.\", function () {",
+									"    pm.expect(error.code).to.eql(\"VALIDATION_ERROR\");",
+									"    pm.expect(error.message).to.eql(\"Invalid JSON body.\");",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"usuarioId\": {{usuarioId}}, \"canal\": \"push\", ",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Reglas transversales: \"Un cuerpo que no parsea como JSON devuelve 400 VALIDATION_ERROR con el mensaje Invalid JSON body.\"."
+					}
+				},
+				{
+					"name": "PATCH Verbo no soportado en la coleccion debe responder 405",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Status 405 - metodo no permitido en la ruta de coleccion\", function () {",
+									"    pm.response.to.have.status(405);",
+									"});",
+									"",
+									"pm.test(\"405 no sigue la envoltura {error} del resto de la API\", function () {",
+									"    var texto = pm.response.text();",
+									"    var esEnvoltura = false;",
+									"    try { esEnvoltura = Object.prototype.hasOwnProperty.call(JSON.parse(texto), \"error\"); } catch (e) { esEnvoltura = false; }",
+									"    pm.expect(esEnvoltura, \"el 405 lo genera el framework, no la API\").to.eql(false);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						},
+						"description": "Reglas transversales: \"Una ruta que no define el metodo HTTP usado responde 405 Method Not Allowed (...) y su cuerpo no sigue la envoltura {error} del resto de la API\"."
+					}
+				}
+			],
+			"description": "Casos transversales de contrato: los tres endpoints por id deben responder 404 NOT_FOUND ante un identificador inexistente. Cubre el riesgo de procesamiento sobre notificaciones inexistentes del analisis de alcance del grupo."
+		},
+		{
+			"name": "SEG @negative - Seguridad y contrato de errores",
+			"item": [
+				{
+					"name": "GET Sin API key debe responder 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 401 - acceso no autorizado', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('El codigo de error es UNAUTHORIZED', function () {",
+									"    pm.expect(error.code).to.eql('UNAUTHORIZED');",
+									"});",
+									"",
+									"pm.test('No se filtran datos de notificaciones en la respuesta', function () {",
+									"    pm.expect(body).to.not.have.property('data');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "DELETE Sin API key debe responder 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar error = body.error || {};\n\npm.test('Status 401 - escritura sin API key', function () {\n    pm.response.to.have.status(401);\n});\n\npm.test('El codigo de error es UNAUTHORIZED', function () {\n    pm.expect(error.code).to.eql('UNAUTHORIZED');\n});\n\npm.test('No se aplica ningun cambio sin autenticacion', function () {\n    pm.expect(body).to.not.have.property('data');\n});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Sin API key debe responder 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar error = body.error || {};\n\npm.test('Status 401 - escritura sin API key', function () {\n    pm.response.to.have.status(401);\n});\n\npm.test('El codigo de error es UNAUTHORIZED', function () {\n    pm.expect(error.code).to.eql('UNAUTHORIZED');\n});\n\npm.test('No se aplica ningun cambio sin autenticacion', function () {\n    pm.expect(body).to.not.have.property('data');\n});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}/leer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}",
+								"leer"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PUT Sin API key debe responder 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};\ntry { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }\nvar error = body.error || {};\n\npm.test('Status 401 - escritura sin API key', function () {\n    pm.response.to.have.status(401);\n});\n\npm.test('El codigo de error es UNAUTHORIZED', function () {\n    pm.expect(error.code).to.eql('UNAUTHORIZED');\n});\n\npm.test('No se aplica ningun cambio sin autenticacion', function () {\n    pm.expect(body).to.not.have.property('data');\n});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"canal\": \"push\",\r\n  \"asunto\": \"test seguridad\",\r\n  \"mensaje\": \"test seguridad\"\r\n}   ",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET Con API key invalida debe responder 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 401 - API key invalida o inactiva', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('El contrato ErrorResponse se respeta', function () {",
+									"    pm.expect(error.code).to.eql('UNAUTHORIZED');",
+									"    pm.expect(error.message).to.be.a('string');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "api-key-invalida-grupo-06"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones?usuarioId={{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							],
+							"query": [
+								{
+									"key": "usuarioId",
+									"value": "{{usuarioId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Sin API key debe responder 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var body = {};",
+									"try { body = pm.response.json() || {}; } catch (e) { /* respuesta no JSON */ }",
+									"var error = body.error || {};",
+									"",
+									"pm.test('Status 401 - la escritura tambien exige API key', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('El codigo de error es UNAUTHORIZED', function () {",
+									"    pm.expect(error.code).to.eql('UNAUTHORIZED');",
+									"});",
+									"",
+									"pm.test('No se creo ninguna notificacion', function () {",
+									"    pm.expect(body).to.not.have.property('data');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"canal\": \"push\",\n  \"asunto\": \"Intento sin credenciales\",\n  \"mensaje\": \"Este alta no debe persistirse\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Casos transversales de seguridad exigidos por el contrato AIQUAA: 401 sin API key y 401 con API key invalida. Cubren el requisito Auth Required de los cinco endpoints.\nEsta carpeta se ejecuta sin credenciales a proposito, por lo que no depende de la variable apiKey."
+		},
+		{
+			"name": "E2E @sql - Validacion SQL sobre marcar leida",
+			"item": [
+				{
+					"name": "PATCH Marcar como leida - notificacion no leida (validacion SQL)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const postRequest = {",
+									"    url: pm.variables.get('baseUrl') + '/api/v1/notificaciones',",
+									"    method: 'POST',",
+									"    header: {",
+									"        'Content-Type': 'application/json',",
+									"        'x-api-key': pm.variables.get('apiKey')",
+									"    },",
+									"    body: {",
+									"        mode: 'raw',",
+									"        raw: JSON.stringify({",
+									"            usuarioId: Number(pm.collectionVariables.get('usuarioId')),",
+									"            canal: 'push',",
+									"            asunto: 'Validacion SQL - PATCH leer',",
+									"            mensaje: 'Fixture creada para validar el patron SQL sobre PATCH /leer.'",
+									"        })",
+									"    }",
+									"};",
+									"",
+									"pm.sendRequest(postRequest, (err, res) => {",
+									"    if (err) {",
+									"        console.error('No se pudo crear la notificacion fixture:', err);",
+									"        return;",
+									"    }",
+									"    const id = res.json().data.id;",
+									"    pm.collectionVariables.set('notifIdSql', id);",
+									"",
+									"    const sqlRequest = utils.bodySqlRest(",
+									"        'SELECT id, leido FROM notificaciones WHERE id = $1',",
+									"        [id]",
+									"    );",
+									"    pm.sendRequest(sqlRequest, (err2, res2) => {",
+									"        if (err2) {",
+									"            console.error('Pre-request SQL check fallo:', err2);",
+									"            return;",
+									"        }",
+									"        const row = (res2.json().data || [])[0];",
+									"        console.log('Precondicion - leido antes del PATCH:', row && row.leido);",
+									"    });",
+									"});"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 - notificacion marcada como leida', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const body = pm.response.json();",
+									"pm.test('La respuesta confirma leido = true', () => {",
+									"    pm.expect(body.data.leido).to.eql(true);",
+									"});",
+									"",
+									"const id = pm.collectionVariables.get('notifIdSql');",
+									"",
+									"const sqlRequest = utils.bodySqlRest(",
+									"    'SELECT id, leido FROM notificaciones WHERE id = $1',",
+									"    [id]",
+									");",
+									"pm.sendRequest(sqlRequest, (err, res) => {",
+									"    pm.test('La BD confirma leido = true tras el PATCH', () => {",
+									"        if (err) throw err;",
+									"        const row = res.json().data[0];",
+									"        pm.expect(row, 'no se encontro la notificacion en la BD').to.not.be.undefined;",
+									"        pm.expect(row.leido).to.eql(true);",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{notifIdSql}}/leer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{notifIdSql}}",
+								"leer"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH Marcar como leida - id inexistente (validacion SQL de que no cambio nada)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.collectionVariables.set('idInexistente', 99999999);",
+									"",
+									"const sqlRequest = utils.bodySqlRest('SELECT COUNT(*) AS total FROM notificaciones WHERE leido = true');",
+									"pm.sendRequest(sqlRequest, (err, res) => {",
+									"    if (err) {",
+									"        console.error('Pre-request SQL check fallo:', err);",
+									"        return;",
+									"    }",
+									"    pm.variables.set('totalLeidasAntes', res.json().data[0].total);",
+									"});"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 404 - recurso no encontrado', () => {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"const sqlRequest = utils.bodySqlRest('SELECT COUNT(*) AS total FROM notificaciones WHERE leido = true');",
+									"pm.sendRequest(sqlRequest, (err, res) => {",
+									"    pm.test('La BD no registro ningun cambio (COUNT de leidas igual antes y despues)', () => {",
+									"        if (err) throw err;",
+									"        const totalDespues = res.json().data[0].total;",
+									"        pm.expect(Number(totalDespues)).to.eql(Number(pm.variables.get('totalLeidasAntes')));",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notificaciones/{{idInexistente}}/leer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notificaciones",
+								"{{idInexistente}}",
+								"leer"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "key",
+				"value": "x-api-key",
+				"type": "string"
+			},
+			{
+				"key": "value",
+				"value": "{{apiKey}}",
+				"type": "string"
+			},
+			{
+				"key": "in",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// ---------------------------------------------------------------------------",
+					"// Semana 03 — helper de verificacion en base de datos.",
+					"// Declarado UNA sola vez aca porque el pre-request de la coleccion corre antes",
+					"// de cada request. `utils` vive en memoria durante la corrida: no es una variable",
+					"// de Postman, por lo que la coleccion debe ejecutarse completa o por carpetas",
+					"// (Runner/Newman). Un request suelto no pasa por este script y da ReferenceError.",
+					"// Contrato del endpoint: POST /api/v1/sql/select {sql, params} -> {data, rowCount}.",
+					"// Guardrails de la API: solo SELECT y solo sobre tablas de la whitelist.",
+					"// ---------------------------------------------------------------------------",
+					"if (typeof utils === \"undefined\") {",
+					"    utils = {",
+					"        sqlSelect: function (sql, params) {",
+					"            return {",
+					"                url: pm.collectionVariables.get(\"baseUrl\") + pm.collectionVariables.get(\"sqlPath\"),",
+					"                method: \"POST\",",
+					"                header: {",
+					"                    \"Content-Type\": \"application/json\",",
+					"                    \"x-api-key\": pm.variables.get(\"apiKey\"),",
+					"                },",
+					"                body: { mode: \"raw\", raw: JSON.stringify({ sql: sql, params: params || [] }) },",
+					"            };",
+					"        },",
+					"        // Devuelve siempre un arreglo: si la consulta fallo o no es JSON, devuelve [].",
+					"        filas: function (res) {",
+					"            try {",
+					"                var body = res.json();",
+					"                return Array.isArray(body.data) ? body.data : [];",
+					"            } catch (e) {",
+					"                return [];",
+					"            }",
+					"        },",
+					"        // Alias: mismo request que sqlSelect, usado por la carpeta E2E @sql.",
+					"        bodySqlRest: function (sql, params) {",
+					"            return this.sqlSelect(sql, params);",
+					"        },",
+					"    };",
+					"}",
+					"",
+					"// Guardia comun: la coleccion no puede ejecutarse sin API key.",
+					"if (!pm.variables.get('apiKey')) {",
+					"    console.warn('[Grupo 06] La variable apiKey esta vacia: la API respondera 401 UNAUTHORIZED y los tests de negocio fallaran. Cargar la API key en el environment o pasarla con --env-var \"apiKey=...\".');",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Assertions transversales aplicadas a TODOS los requests de la coleccion.",
+					"const maxRT = Number(pm.collectionVariables.get('maxResponseTime')) || 3000;",
+					"const sinCuerpo = pm.response.code === 204 || pm.response.text().length === 0;",
+					"",
+					"pm.test('Response time is less than ' + maxRT + 'ms', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(maxRT);",
+					"});",
+					"",
+					"if (!sinCuerpo) {",
+					"    pm.test('La respuesta es application/json', function () {",
+					"        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+					"    });",
+					"",
+					"    pm.test('El cuerpo es JSON parseable', function () {",
+					"        pm.response.to.be.json;",
+					"    });",
+					"}",
+					"",
+					"pm.test('La API no responde con error de servidor (5xx)', function () {",
+					"    pm.expect(pm.response.code).to.be.below(500);",
+					"});",
+					"",
+					"// AIQUAA limita a 30 requests por minuto (cabeceras X-Ratelimit-*).",
+					"// Esta assertion hace visible el agotamiento de la cuota en lugar de dejar",
+					"// que se manifieste como fallos cripticos en los tests especificos.",
+					"pm.test('La cuota de requests no esta agotada (429 RATE_LIMITED)', function () {",
+					"    pm.expect(pm.response.code, 'Rate limit alcanzado: reintentar tras Retry-After=' + pm.response.headers.get('Retry-After')).to.not.eql(429);",
+					"});",
+					"",
+					"// Diagnostico temprano del error mas comun al importar la coleccion.",
+					"if (pm.response.code === 401) {",
+					"    console.warn('[Grupo 06] 401 UNAUTHORIZED: revisar la variable apiKey del environment activo.');",
+					"}",
+					"",
+					"const restantes = pm.response.headers.get('X-Ratelimit-Remaining');",
+					"if (restantes !== null && Number(restantes) <= 5) {",
+					"    console.warn('[Rate limit] Quedan ' + restantes + ' de ' + pm.response.headers.get('X-Ratelimit-Limit') + ' requests en la ventana actual.');",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://aiquaa-sandbox-api.vercel.app"
+		},
+		{
+			"key": "usuarioId",
+			"value": "1"
+		},
+		{
+			"key": "maxResponseTime",
+			"value": "3000"
+		},
+		{
+			"key": "idInexistente",
+			"value": "99999999"
+		},
+		{
+			"key": "prefijoDatosPrueba",
+			"value": "TRX-00"
+		},
+		{
+			"key": "trxHappyPush",
+			"value": "TRX-001"
+		},
+		{
+			"key": "montoHappyPush",
+			"value": "500000"
+		},
+		{
+			"key": "trxCanalDesactivado",
+			"value": "TRX-002"
+		},
+		{
+			"key": "trxDuplicado",
+			"value": "TRX-003"
+		},
+		{
+			"key": "trxRespaldoEmail",
+			"value": "TRX-004"
+		},
+		{
+			"key": "montoRespaldoEmail",
+			"value": "750000"
+		},
+		{
+			"key": "trxHorarioSilencioso",
+			"value": "TRX-005"
+		},
+		{
+			"key": "trxHappySms",
+			"value": "TRX-006"
+		},
+		{
+			"key": "montoHappySms",
+			"value": "1000000"
+		},
+		{
+			"key": "trxSmsInvalido",
+			"value": "TRX-007"
+		},
+		{
+			"key": "trxMulticanal",
+			"value": "TRX-009"
+		},
+		{
+			"key": "montoMulticanal",
+			"value": "1200000"
+		},
+		{
+			"key": "canalNoSoportado",
+			"value": "whatsapp"
+		},
+		{
+			"key": "pendientesLimpieza",
+			"value": "[]"
+		},
+		{
+			"key": "cleanupId",
+			"value": ""
+		},
+		{
+			"key": "notifIdPush",
+			"value": ""
+		},
+		{
+			"key": "notifIdSms",
+			"value": ""
+		},
+		{
+			"key": "notifIdRespaldo",
+			"value": ""
+		},
+		{
+			"key": "notifIdCanalOmitido",
+			"value": ""
+		},
+		{
+			"key": "notifIdMulticanalPush",
+			"value": ""
+		},
+		{
+			"key": "notifIdMulticanalEmail",
+			"value": ""
+		},
+		{
+			"key": "notifIdDuplicado1",
+			"value": ""
+		},
+		{
+			"key": "notifIdDuplicado2",
+			"value": ""
+		},
+		{
+			"key": "notifIdDiferida",
+			"value": ""
+		},
+		{
+			"key": "sqlPath",
+			"value": "/api/v1/sql/select",
+			"type": "string"
+		},
+		{
+			"key": "notifIdBajaLeida",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "asuntoAltaInvalida",
+			"value": "TRX-008 alta que no debe persistir",
+			"type": "string"
+		},
+		{
+			"key": "usuarioIdInexistente",
+			"value": "999999",
+			"type": "string"
+		},
+		{
+			"key": "limiteListado",
+			"value": "100",
+			"type": "string"
+		},
+		{
+			"key": "trxEmailPrincipal",
+			"value": "TRX-010",
+			"type": "string"
+		},
+		{
+			"key": "montoEmailPrincipal",
+			"value": "850000",
+			"type": "string"
+		},
+		{
+			"key": "notifIdEmailPrincipal",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "notifIdSql",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
