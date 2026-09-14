@@ -83,6 +83,8 @@ ejecutado en CI por [`jmeter-grupo05-performance.yml`](../../.github/workflows/j
 | `tests/performance/plans/Grupo05_Tarjetas_v1.jmx` | Plan de carga: consulta y emisión de tarjetas. |
 | `tests/performance/data/grupo05_consulta_tarjetas.csv` | `tarjetaId,codigoEsperado` para el GET. |
 | `tests/performance/data/grupo05_emision_tarjetas.csv` | `usuarioId,tipo,marca,codigoEsperado` para el POST. |
+| `tests/performance/properties/local.properties` | Host, carga y rutas para correr en local con `jmeter -p`. |
+| `tests/performance/thresholds/thresholds.json` | SLA propio del grupo: global y por operación. |
 
 ### Qué cubre
 
@@ -135,11 +137,11 @@ En local, conviene esperar un minuto entre corridas por el mismo motivo.
 ### Correr en local
 
 ```bash
-jmeter -n -t grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+jmeter -n -p grupos/grupo-05-tarjetas-credito-debito/tests/performance/properties/local.properties \
+  -t grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
   -l test-results/performance/grupo05/R_GRUPO05_TARJETAS.jtl \
   -e -o test-results/performance/grupo05/dashboard \
   -JapiKey=<api-key> \
-  -Jthreads=2 -Jloops=5
 ```
 
 La api key **no está en el plan**: entra por `-JapiKey`. En CI la aporta el secret
@@ -157,6 +159,21 @@ npx -y aiquaa-performance-mcp-server --report \
   --plan grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
   --test-type carga
 ```
+
+### SLA y el cold start de la sandbox
+
+[`thresholds/thresholds.json`](tests/performance/thresholds/thresholds.json) declara 5 % de
+error máximo y p95 bajo 2000 ms, tanto global como **por operación**, así un endpoint lento
+no se esconde detrás del promedio de los otros dos.
+
+La carga por defecto es de 2 hilos × 10 iteraciones, o sea **20 muestras por operación**, y
+esa cifra no es arbitraria. La API corre en Vercel: la primera request despierta la función
+y tarda entre 2 y 8 segundos, contra los ~200 ms de las siguientes. Con 10 muestras por
+operación ese pico aislado cae justo en el percentil 95 y tumba el SLA aunque el 100 % de
+las respuestas haya sido correcta — pasó en la corrida de CI del 14/09. Con 20 muestras, el
+mismo pico cae en el p99 y el p95 refleja el comportamiento real.
+
+Bajar `loops` para que la corrida termine antes reintroduce el problema.
 
 ### Mantenimiento del CSV de consulta
 

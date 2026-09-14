@@ -21,7 +21,7 @@ on:
       loops:
         description: "Iteraciones por thread"
         required: false
-        default: "5"
+        default: "10"
 
 permissions:
   contents: read
@@ -86,7 +86,7 @@ jobs:
             -JconsultaCsvPath=grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_consulta_tarjetas.csv \
             -JemisionCsvPath=grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_emision_tarjetas.csv \
             -Jthreads="${{ inputs.threads || '2' }}" \
-            -Jloops="${{ inputs.loops || '5' }}"
+            -Jloops="${{ inputs.loops || '10' }}"
 
       - name: Generar informe PDF
         if: always()
@@ -102,7 +102,7 @@ jobs:
             --plan grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
             --test-type carga \
             --threads "${{ inputs.threads || '2' }}" \
-            --loops "${{ inputs.loops || '5' }}" \
+            --loops "${{ inputs.loops || '10' }}" \
             --author "${{ github.triggering_actor }}" \
             --api-version "${{ github.sha }}" \
             --repo-url "${{ github.server_url }}/${{ github.repository }}"
