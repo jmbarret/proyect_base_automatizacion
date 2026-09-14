@@ -1,0 +1,243 @@
+{
+  "info": {
+    "_postman_id": "b237143e-7ad3-4f4f-945d-4bf87f540f9a",
+    "name": "Grupo 07 - Carrito Ecommerce - Juan Barreto",
+    "description": "Colección individual de Juan Barreto para la trazabilidad BDD a API del checkout de órdenes en AIQUAA. Cubre un happy path, un caso negativo y un edge case.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://aiquaa-sandbox-api.vercel.app",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ordenId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Checkout exitoso",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test('La respuesta contiene el id de la orden', function () {",
+              "    pm.expect(jsonData.data).to.be.an('object');",
+              "    pm.expect(jsonData.data.id).to.exist;",
+              "});",
+              "",
+              "pm.test('El estado inicial es pendiente', function () {",
+              "    pm.expect(jsonData.data.estado).to.eql('pendiente');",
+              "});",
+              "",
+              "pm.test('La respuesta contiene los dos items enviados', function () {",
+              "    pm.expect(jsonData.data.items).to.be.an('array').with.lengthOf(2);",
+              "});",
+              "",
+              "pm.test('El monto calculado por el servidor es 26.25', function () {",
+              "    pm.expect(Number(jsonData.data.monto)).to.eql(26.25);",
+              "});",
+              "",
+              "pm.test('Response time es menor a 3000 ms', function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+              "});",
+              "",
+              "if (jsonData.data && jsonData.data.id !== undefined) {",
+              "    pm.collectionVariables.set('ordenId', String(jsonData.data.id));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": 1,\n  \"items\": [\n    {\n      \"producto\": \"Teclado\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 10.50\n    },\n    {\n      \"producto\": \"Mouse\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 5.25\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ordenes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ordenes"
+          ]
+        },
+        "description": "BDD Happy Path: Completar una compra con productos disponibles. Crea una orden, valida el cálculo server-side y guarda data.id en ordenId."
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Carrito vacío",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 400', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test('La respuesta contiene la estructura de error', function () {",
+              "    pm.expect(jsonData.error).to.be.an('object');",
+              "    pm.expect(jsonData.error.code).to.exist;",
+              "});",
+              "",
+              "pm.test('El código es VALIDATION_ERROR', function () {",
+              "    pm.expect(jsonData.error.code).to.eql('VALIDATION_ERROR');",
+              "});",
+              "",
+              "pm.test('Response time es menor a 3000 ms', function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": 1,\n  \"items\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ordenes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ordenes"
+          ]
+        },
+        "description": "BDD Negativo: No permitir finalizar una compra con el carrito vacío. Valida el rechazo del arreglo items sin elementos."
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Cantidad cero",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 400', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test('La respuesta contiene la estructura de error', function () {",
+              "    pm.expect(jsonData.error).to.be.an('object');",
+              "    pm.expect(jsonData.error.code).to.exist;",
+              "});",
+              "",
+              "pm.test('El código es VALIDATION_ERROR', function () {",
+              "    pm.expect(jsonData.error.code).to.eql('VALIDATION_ERROR');",
+              "});",
+              "",
+              "pm.test('Response time es menor a 3000 ms', function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": 1,\n  \"items\": [\n    {\n      \"producto\": \"Teclado\",\n      \"cantidad\": 0,\n      \"precioUnitario\": 10.50\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ordenes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ordenes"
+          ]
+        },
+        "description": "BDD Edge Case: No permitir confirmar una compra con cantidad cero. Valida el rechazo de una cantidad menor al mínimo permitido."
+      },
+      "response": []
+    }
+  ]
+}

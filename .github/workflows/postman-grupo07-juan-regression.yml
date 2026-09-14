@@ -1,0 +1,72 @@
+name: Postman Regression - Grupo 07 - Juan Barreto
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/postman-grupo07-juan-regression.yml
+      - postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json
+      - scripts/grupo07/newman_report.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  newman-juan:
+    name: Juan Barreto - Newman + PDF
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Instalar ReportLab
+        run: python -m pip install reportlab
+
+      - name: Ejecutar Newman - Juan Barreto
+        env:
+          GRUPO07_BASE_URL: ${{ vars.GRUPO07_BASE_URL }}
+          GRUPO07_API_KEY: ${{ secrets.GRUPO07_API_KEY }}
+        run: |
+          if [[ -z "$GRUPO07_BASE_URL" || -z "$GRUPO07_API_KEY" ]]; then
+            echo "::error::Configure GRUPO07_BASE_URL and GRUPO07_API_KEY for this run."
+            exit 1
+          fi
+          mkdir -p newman
+          npx --yes newman@6.2.2 run \
+            postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json \
+            --env-var "baseUrl=$GRUPO07_BASE_URL" \
+            --env-var "apiKey=$GRUPO07_API_KEY" \
+            --delay-request 800 \
+            --reporters cli,json \
+            --reporter-json-export newman/results.json
+
+      # Newman failures still fail the job; report generation does not mask them.
+      # If JSON is missing, the reporter exits with an explicit diagnostic.
+      - name: Generar reporte PDF
+        if: always()
+        run: |
+          python scripts/grupo07/newman_report.py \
+            --results newman/results.json \
+            --output newman/report.pdf
+
+      - name: Subir reporte PDF
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: informe-regresion-grupo07-juan
+          path: newman/report.pdf
+          retention-days: 7
+          # Missing JSON/PDF already fails the report step; do not upload raw JSON.
+          if-no-files-found: warn
