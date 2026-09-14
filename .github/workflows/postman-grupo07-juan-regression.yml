@@ -7,6 +7,8 @@ on:
       - .github/workflows/postman-grupo07-juan-regression.yml
       - postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json
       - scripts/grupo07/newman_report.py
+  push:
+    branches: [juan-barreto-tarea2-selfcontained]
   workflow_dispatch:
 
 permissions:
@@ -18,31 +20,52 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Verificar configuracion externa
+        id: config
+        shell: bash
+        env:
+          GRUPO07_BASE_URL: ${{ vars.GRUPO07_BASE_URL }}
+          GRUPO07_API_KEY: ${{ secrets.GRUPO07_API_KEY }}
+        run: |
+          if [[ -n "$GRUPO07_BASE_URL" && -n "$GRUPO07_API_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Informar ejecucion sin configuracion externa
+        if: ${{ steps.config.outputs.available == 'false' }}
+        run: |
+          echo "External configuration is unavailable (expected for fork pull requests)."
+          echo "Newman, PDF generation, and artifact upload were skipped. No regression was executed."
+          echo "Full Newman regression is executed by the push workflow in the contributor fork when configured."
+
       - name: Checkout del repositorio
+        if: ${{ steps.config.outputs.available == 'true' }}
         uses: actions/checkout@v7
 
       - name: Configurar Node.js
+        if: ${{ steps.config.outputs.available == 'true' }}
         uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - name: Configurar Python
+        if: ${{ steps.config.outputs.available == 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
       - name: Instalar ReportLab
+        if: ${{ steps.config.outputs.available == 'true' }}
         run: python -m pip install reportlab
 
       - name: Ejecutar Newman - Juan Barreto
+        if: ${{ steps.config.outputs.available == 'true' }}
         env:
           GRUPO07_BASE_URL: ${{ vars.GRUPO07_BASE_URL }}
           GRUPO07_API_KEY: ${{ secrets.GRUPO07_API_KEY }}
         run: |
-          if [[ -z "$GRUPO07_BASE_URL" || -z "$GRUPO07_API_KEY" ]]; then
-            echo "::error::Configure GRUPO07_BASE_URL and GRUPO07_API_KEY for this run."
-            exit 1
-          fi
           mkdir -p newman
           npx --yes newman@6.2.2 run \
             postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json \
@@ -55,14 +78,14 @@ jobs:
       # Newman failures still fail the job; report generation does not mask them.
       # If JSON is missing, the reporter exits with an explicit diagnostic.
       - name: Generar reporte PDF
-        if: always()
+        if: ${{ always() && steps.config.outputs.available == 'true' }}
         run: |
           python scripts/grupo07/newman_report.py \
             --results newman/results.json \
             --output newman/report.pdf
 
       - name: Subir reporte PDF
-        if: always()
+        if: ${{ always() && steps.config.outputs.available == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: informe-regresion-grupo07-juan
