@@ -1,0 +1,129 @@
+name: JMeter Grupo 05 - Tarjetas (con informe PDF)
+
+# Sin trigger de push sobre la rama del grupo: con el PR abierto, cada push
+# disparaba la misma medicion dos veces (push + pull_request) sobre la misma
+# api-key. Peor, con tres runs en el grupo de concurrencia uno corre, otro queda
+# pendiente y el tercero cancela al pendiente, que fue lo que dejo sin ejecutar
+# a la regresion Newman. Para correr sin PR abierto esta workflow_dispatch.
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx"
+      - "grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_*.csv"
+      - ".github/workflows/jmeter-grupo05-performance.yml"
+  workflow_dispatch:
+    inputs:
+      threads:
+        description: "Usuarios concurrentes (threads)"
+        required: false
+        default: "2"
+      loops:
+        description: "Iteraciones por thread"
+        required: false
+        default: "10"
+
+permissions:
+  contents: read
+
+# El rate limit del sandbox es por api-key, no por corrida: dos ejecuciones
+# simultaneas se roban las 30 req/min entre si y ambas terminan en 429. Se
+# serializan las corridas de este workflow en vez de cancelarlas, para que un
+# push seguido de otro no invalide la medicion.
+concurrency:
+  group: aiquaa-sandbox-grupo05
+  cancel-in-progress: false
+
+env:
+  JMETER_VERSION: 5.6.3
+  RESULTS_DIR: test-results/performance/grupo05
+  API_BASE: https://aiquaa-sandbox-api.vercel.app
+  # La api key no vive en el .jmx. Si el secret no esta cargado se usa la key
+  # publica del sandbox que se repartio en clase, para que el workflow siga
+  # siendo ejecutable por cualquiera del grupo.
+  API_KEY: ${{ secrets.GRUPO05_API_KEY || 'sbx_demo_f581ca21e68a347288c94d71' }}
+
+jobs:
+  performance:
+    name: JMeter grupo 05 + informe PDF
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Java (requerido por JMeter)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Instalar JMeter
+        run: |
+          curl --fail --location --silent --show-error \
+            "https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz" -o jmeter.tgz
+          tar -xzf jmeter.tgz
+
+      - name: Esperar a que haya cupo en el rate limit
+        run: |
+          bash grupos/grupo-05-tarjetas-credito-debito/scripts/esperar-cupo-api.sh \
+            "${API_KEY}" "${API_BASE}"
+
+      - name: Ejecutar plan de carga headless
+        run: |
+          mkdir -p "${RESULTS_DIR}/dashboard"
+          "apache-jmeter-${JMETER_VERSION}/bin/jmeter" -n \
+            -t grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+            -l "${RESULTS_DIR}/R_GRUPO05_TARJETAS.jtl" \
+            -e -o "${RESULTS_DIR}/dashboard" \
+            -JapiKey="${API_KEY}" \
+            -JconsultaCsvPath=grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_consulta_tarjetas.csv \
+            -JemisionCsvPath=grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_emision_tarjetas.csv \
+            -Jthreads="${{ inputs.threads || '2' }}" \
+            -Jloops="${{ inputs.loops || '10' }}"
+
+      - name: Generar informe PDF
+        if: always()
+        run: |
+          # El generador sale con codigo 1 cuando el veredicto es FAIL. Aca solo
+          # interesa producir el PDF; el gate del SLA es "Evaluar umbrales".
+          set +e
+          npx -y aiquaa-performance-mcp-server --report \
+            "${RESULTS_DIR}/R_GRUPO05_TARJETAS.jtl" \
+            grupos/grupo-05-tarjetas-credito-debito/tests/performance/thresholds/thresholds.json \
+            "${RESULTS_DIR}/INFORME_PERF_GRUPO05.pdf" \
+            --api-name "AIQUAA Sandbox API (tarjetas credito/debito)" \
+            --plan grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+            --test-type carga \
+            --threads "${{ inputs.threads || '2' }}" \
+            --loops "${{ inputs.loops || '10' }}" \
+            --author "${{ github.triggering_actor }}" \
+            --api-version "${{ github.sha }}" \
+            --repo-url "${{ github.server_url }}/${{ github.repository }}"
+          status=$?
+          set -e
+          if [ ! -f "${RESULTS_DIR}/INFORME_PERF_GRUPO05.pdf" ]; then
+            echo "::error::No se genero el informe PDF (exit ${status})."
+            exit "${status}"
+          fi
+
+      - name: Evaluar umbrales (SLA)
+        # Corre despues del informe para que el PDF se publique aun si el SLA falla.
+        run: |
+          npx -y aiquaa-performance-mcp-server --evaluate \
+            "${RESULTS_DIR}/R_GRUPO05_TARJETAS.jtl" \
+            grupos/grupo-05-tarjetas-credito-debito/tests/performance/thresholds/thresholds.json
+
+      - name: Subir resultados e informe
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: jmeter-grupo05-tarjetas
+          path: test-results/performance/grupo05
+          retention-days: 7

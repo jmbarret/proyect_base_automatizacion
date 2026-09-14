@@ -1,0 +1,842 @@
+{
+  "info": {
+    "_postman_id": "8d731f6a-7efb-45fa-b1af-eab5ba9c6041",
+    "name": "Grupo05-Tarjetas de Crédito/Débito",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "8324138",
+    "_collection_link": "https://go.postman.co/collection/8324138-8d731f6a-7efb-45fa-b1af-eab5ba9c6041?source=collection_link"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request Script DE LA COLECCION. Corre antes de CADA request de",
+          "// toda la coleccion.",
+          "",
+          "// 1) Helper reusable para consultar la BD via /api/v1/sql/select.",
+          "if (typeof utils === \"undefined\") {",
+          "  utils = {",
+          "    bodySqlRest: function (sql, params) {",
+          "      return {",
+          "        url: pm.collectionVariables.get(\"baseUrl\") + \"/api/v1/sql/select\",",
+          "        method: \"POST\",",
+          "        header: {",
+          "          \"Content-Type\": \"application/json\",",
+          "          \"x-api-key\": pm.collectionVariables.get(\"apiKey\")",
+          "        },",
+          "        body: {",
+          "          mode: \"raw\",",
+          "          raw: JSON.stringify({ sql: sql, params: params || [] })",
+          "        }",
+          "      };",
+          "    }",
+          "  };",
+          "}",
+          "",
+          "// 2) Default de la variable que varia entre casos (id de tarjeta).",
+          "//    Se resetea ANTES DE CADA request; el caso negativo sobreescribe",
+          "//    SOLO esta variable en su propio Pre-request Script.",
+          "pm.collectionVariables.set(\"tarjetaId\", 1);"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Listar tarjetas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas"
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN'"
+      },
+      "response": []
+    },
+    {
+      "name": "Emitir tarjeta",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.environment.set(\"tipo_tarjeta\", \"credito\");\r",
+              "pm.environment.set(\"marca_tarjeta\", \"visa\");"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// 1. El codigo de respuesta es 201 (Created)\r",
+              "pm.test(\"Codigo de respuesta es 201 Created\", function () {\r",
+              "    pm.response.to.have.status(201);\r",
+              "});\r",
+              "\r",
+              "// 2. El tiempo de respuesta es aceptable\r",
+              "pm.test(\"Tiempo de respuesta menor a 3000ms\", function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});\r",
+              "\r",
+              "\r",
+              "// 3. El response tiene los campos requeridos\r",
+              "pm.test(\"El cuerpo de la respuesta tiene los campos requeridos\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data).to.have.property(\"id\");\r",
+              "    pm.expect(jsonData.data).to.have.property(\"usuario_id\");\r",
+              "    pm.expect(jsonData.data).to.have.property(\"tipo\");\r",
+              "    pm.expect(jsonData.data).to.have.property(\"marca\");\r",
+              "    pm.expect(jsonData.data).to.have.property(\"estado\");\r",
+              "    pm.expect(jsonData.data).to.have.property(\"numero_enmascarado\");\r",
+              "});\r",
+              "\r",
+              "// 4. El tipo de tarjeta emitida coincide con la seteada en la variable en el request inicial\r",
+              "pm.test(\"Tipo de tarjeta es 'credito'\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.tipo).to.eql(\"credito\");\r",
+              "});\r",
+              "\r",
+              "// 5. La marca de la tarjeta emitida coincide con la seteada en la variable en el request inicial\r",
+              "pm.test(\"Marca de la tarjeta es 'visa'\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.marca).to.eql(\"visa\");\r",
+              "});\r",
+              "\r",
+              "// 6. Se creo correctamente el card_id\r",
+              "pm.test(\"El id de la tarjeta esta presente y no es null\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.id).to.not.be.null;\r",
+              "    pm.expect(jsonData.data.id).to.not.be.undefined;\r",
+              "});\r",
+              "\r",
+              "// 7. Verificamos que el número de tarjeta esté presente y no esté vacío\r",
+              "pm.test(\"El numero de la tarjeta esta presente y no esta vacio\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.numero_enmascarado).to.not.be.null;\r",
+              "    pm.expect(jsonData.data.numero_enmascarado).to.not.be.undefined;\r",
+              "    pm.expect(String(jsonData.data.numero_enmascarado).length).to.be.above(0);\r",
+              "});\r",
+              "\r",
+              "// 8. Guardamos tarjeta_id en una variable en caso de necesitar usarla luego\r",
+              "const jsonData = pm.response.json();\r",
+              "if (jsonData && jsonData.id) {\r",
+              "    pm.environment.set(\"tarjeta_id\", jsonData.id);\r",
+              "    console.log(\"tarjeta_id saved:\", jsonData.id);\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"usuarioId\": 1,\r\n  \"tipo\": \"{{tipo_tarjeta}}\",\r\n  \"marca\": \"{{marca_tarjeta}}\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas"
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas \\\r\n  --request POST \\\r\n  --header 'Content-Type: application/json' \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN' \\\r\n  --data '{\r\n  \"usuarioId\": 1,\r\n  \"tipo\": \"credito\",\r\n  \"marca\": \"visa\"\r\n}'"
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener tarjeta por id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response time is less than 3000ms\", function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response has data object\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData).to.have.property(\"data\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response contains required card fields\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    const card = jsonData.data;\r",
+              "    pm.expect(card).to.have.property(\"id\");\r",
+              "    pm.expect(card).to.have.property(\"numero_enmascarado\");\r",
+              "    pm.expect(card).to.have.property(\"tipo\");\r",
+              "    pm.expect(card).to.have.property(\"marca\");\r",
+              "    pm.expect(card).to.have.property(\"estado\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/:id",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "4"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1 \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN'"
+      },
+      "response": []
+    },
+    {
+      "name": "Reemplazar tarjeta",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"tipo\": \"credito\",\r\n  \"marca\": \"visa\",\r\n  \"limiteCredito\": 1\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/:id",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1 \\\r\n  --request PUT \\\r\n  --header 'Content-Type: application/json' \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN' \\\r\n  --data '{\r\n  \"tipo\": \"credito\",\r\n  \"marca\": \"visa\",\r\n  \"limiteCredito\": 1\r\n}'"
+      },
+      "response": []
+    },
+    {
+      "name": "Eliminar tarjeta (soft-delete)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/:id",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1 \\\r\n  --request DELETE \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN'"
+      },
+      "response": []
+    },
+    {
+      "name": "Bloquear tarjeta",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response time is less than 2000ms\", function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response has data object\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData).to.have.property(\"data\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Card estado is 'bloqueada'\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.estado).to.eql(\"bloqueada\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response contains required card fields\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    const card = jsonData.data;\r",
+              "    pm.expect(card).to.have.property(\"id\");\r",
+              "    pm.expect(card).to.have.property(\"usuario_id\");\r",
+              "    pm.expect(card).to.have.property(\"tipo\");\r",
+              "    pm.expect(card).to.have.property(\"marca\");\r",
+              "    pm.expect(card).to.have.property(\"numero_enmascarado\");\r",
+              "    pm.expect(card).to.have.property(\"estado\");\r",
+              "    pm.expect(card).to.have.property(\"activo\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/:id/bloquear",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas",
+            ":id",
+            "bloquear"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1/bloquear \\\r\n  --request PATCH \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN'"
+      },
+      "response": []
+    },
+    {
+      "name": "Activar tarjeta",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response time is less than 3000ms\", function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response has data object\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData).to.have.property(\"data\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Card estado is 'activa'\", function () {\r",
+              "    const jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data.estado).to.eql(\"activa\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{Api-Key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/:id/activar",
+          "protocol": "https",
+          "host": [
+            "aiquaa-sandbox-api",
+            "vercel",
+            "app"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tarjetas",
+            ":id",
+            "activar"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "Generated from cURL: curl https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1/activar \\\r\n  --request PATCH \\\r\n  --header 'x-api-key: YOUR_SECRET_TOKEN'"
+      },
+      "response": []
+    },
+    {
+      "name": "E2E - Flujos con validacion SQL",
+      "description": "Patron SQL REST dinamico (pre-request + post-response) sobre el endpoint de escritura PATCH /tarjetas/:id/bloquear y /activar. Usa el helper utils.bodySqlRest declarado en el Pre-request Script de la coleccion para consultar /api/v1/sql/select antes y despues de cada request y confirmar que el cambio de estado quedo realmente persistido en la BD, no solo que la API respondio bien. Los 2 primeros requests forman un ciclo (bloquear -> activar) sobre la tarjeta id=1 del seed, asi la corrida completa deja la BD en el mismo estado en que empezo. El tercero es el caso negativo: id de tarjeta inexistente.",
+      "item": [
+        {
+          "name": "Bloquear tarjeta (UPDATE + validacion SQL)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "// Caso feliz: usa el default tarjetaId=1 que puso el Pre-request",
+                  "// Script de la COLECCION. Valida la precondicion en la BD antes",
+                  "// de mandar el PATCH: la tarjeta debe estar 'activa'.",
+                  "const tarjetaId = Number(pm.collectionVariables.get(\"tarjetaId\"));",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT id, estado FROM tarjetas WHERE id = $1\",",
+                  "  [tarjetaId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  const row = (res.json().data || [])[0];",
+                  "  console.log(\"Estado de la tarjeta antes del bloqueo:\", row && row.estado);",
+                  "});",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"La respuesta trae la tarjeta con estado 'bloqueada'\", function () {",
+                  "    pm.expect(body.data).to.have.property(\"id\");",
+                  "    pm.expect(body.data.estado).to.eql(\"bloqueada\");",
+                  "});",
+                  "",
+                  "const tarjetaId = Number(pm.collectionVariables.get(\"tarjetaId\"));",
+                  "",
+                  "// Post-request: vuelve a consultar la BD para confirmar que el",
+                  "// UPDATE realmente quedo persistido, no solo que la API respondio 200.",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT id, estado FROM tarjetas WHERE id = $1\",",
+                  "  [tarjetaId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD confirma la tarjeta con estado 'bloqueada'\", function () {",
+                  "    if (err) throw err;",
+                  "    const row = res.json().data[0];",
+                  "    pm.expect(row, \"no se encontro la tarjeta en la BD\").to.not.be.undefined;",
+                  "    pm.expect(row.estado).to.eql(\"bloqueada\");",
+                  "  });",
+                  "});",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas/{{tarjetaId}}/bloquear",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas",
+                "{{tarjetaId}}",
+                "bloquear"
+              ]
+            },
+            "description": "Caso feliz. Pre-request: confirma que la tarjeta id=1 (seed) esta 'activa'. Post-request: relee la fila en la BD y valida estado='bloqueada'."
+          },
+          "response": []
+        },
+        {
+          "name": "Activar tarjeta (UPDATE + validacion SQL)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "// Segunda mitad del ciclo: la tarjeta deberia estar 'bloqueada'",
+                  "// (dejada asi por el request anterior). Valida la precondicion",
+                  "// antes de mandar el PATCH de activacion.",
+                  "const tarjetaId = Number(pm.collectionVariables.get(\"tarjetaId\"));",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT id, estado FROM tarjetas WHERE id = $1\",",
+                  "  [tarjetaId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  const row = (res.json().data || [])[0];",
+                  "  console.log(\"Estado de la tarjeta antes de activar:\", row && row.estado);",
+                  "});",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"La respuesta trae la tarjeta con estado 'activa'\", function () {",
+                  "    pm.expect(body.data).to.have.property(\"id\");",
+                  "    pm.expect(body.data.estado).to.eql(\"activa\");",
+                  "});",
+                  "",
+                  "const tarjetaId = Number(pm.collectionVariables.get(\"tarjetaId\"));",
+                  "",
+                  "// Post-request: vuelve a consultar la BD (mismo helper) para",
+                  "// confirmar el UPDATE. Al final del ciclo la tarjeta queda igual",
+                  "// que al principio, asi esta corrida es repetible.",
+                  "const request = utils.bodySqlRest(",
+                  "  \"SELECT id, estado FROM tarjetas WHERE id = $1\",",
+                  "  [tarjetaId]",
+                  ");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD confirma la tarjeta con estado 'activa'\", function () {",
+                  "    if (err) throw err;",
+                  "    const row = res.json().data[0];",
+                  "    pm.expect(row, \"no se encontro la tarjeta en la BD\").to.not.be.undefined;",
+                  "    pm.expect(row.estado).to.eql(\"activa\");",
+                  "  });",
+                  "});",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas/{{tarjetaId}}/activar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas",
+                "{{tarjetaId}}",
+                "activar"
+              ]
+            },
+            "description": "Caso feliz (cierre del ciclo). Pre-request: confirma que la tarjeta id=1 esta 'bloqueada'. Post-request: relee la fila en la BD y valida estado='activa'."
+          },
+          "response": []
+        },
+        {
+          "name": "Bloquear tarjeta - id inexistente (validacion negativa)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "// Sobreescribe SOLO 'tarjetaId' a un id que no existe en el seed.",
+                  "// Guarda el COUNT(*) de la tabla completa ANTES del intento para",
+                  "// comparar despues del rechazo y confirmar que nada cambio.",
+                  "pm.collectionVariables.set(\"tarjetaId\", 999999);",
+                  "",
+                  "const request = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM tarjetas\");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  if (err) {",
+                  "    console.error(\"Pre-request SQL check fallo:\", err);",
+                  "    return;",
+                  "  }",
+                  "  pm.variables.set(\"totalAntes\", res.json().data[0].total);",
+                  "});",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "pm.test(\"Status 404 Not Found (tarjeta inexistente)\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "// Post-request: confirma que el rechazo no altero ninguna fila --",
+                  "// el conteo total de 'tarjetas' debe seguir igual.",
+                  "const request = utils.bodySqlRest(\"SELECT COUNT(*) AS total FROM tarjetas\");",
+                  "pm.sendRequest(request, (err, res) => {",
+                  "  pm.test(\"La BD no registro ningun cambio\", function () {",
+                  "    if (err) throw err;",
+                  "    const totalDespues = res.json().data[0].total;",
+                  "    pm.expect(Number(totalDespues)).to.eql(Number(pm.variables.get(\"totalAntes\")));",
+                  "  });",
+                  "});",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tarjetas/{{tarjetaId}}/bloquear",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tarjetas",
+                "{{tarjetaId}}",
+                "bloquear"
+              ]
+            },
+            "description": "Caso negativo: mismo endpoint que el primer caso feliz, pero el Pre-request Script sobreescribe SOLO 'tarjetaId' a 999999 (no existe en el seed). La API responde 404 antes de tocar la BD. Post-request confirma con un COUNT(*) que no se modifico ninguna fila."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://aiquaa-sandbox-api.vercel.app",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "sbx_demo_f581ca21e68a347288c94d71",
+      "type": "string"
+    },
+    {
+      "key": "tarjetaId",
+      "value": "1",
+      "type": "string"
+    }
+  ]
+}

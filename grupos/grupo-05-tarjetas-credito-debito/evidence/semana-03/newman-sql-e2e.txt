@@ -1,0 +1,55 @@
+(node:8616) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)
+newman
+
+Grupo05-Tarjetas de Crédito/Débito
+
+□ E2E - Flujos con validacion SQL
+└ Bloquear tarjeta (UPDATE + validacion SQL)
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 447B, 445ms]
+  ┌
+  │ 'Estado de la tarjeta antes del bloqueo:', 'activa'
+  └
+  PATCH https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1/bloquear [200 OK, 644B, 280ms]
+  √  Status code is 200
+  √  La respuesta trae la tarjeta con estado 'bloqueada'
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 450B, 249ms]
+  √  La BD confirma la tarjeta con estado 'bloqueada'
+
+└ Activar tarjeta (UPDATE + validacion SQL)
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 450B, 263ms]
+  ┌
+  │ 'Estado de la tarjeta antes de activar:', 'bloqueada'
+  └
+  PATCH https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/1/activar [200 OK, 640B, 263ms]
+  √  Status code is 200
+  √  La respuesta trae la tarjeta con estado 'activa'
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 447B, 259ms]
+  √  La BD confirma la tarjeta con estado 'activa'
+
+└ Bloquear tarjeta - id inexistente (validacion negativa)
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 433B, 286ms]
+  PATCH https://aiquaa-sandbox-api.vercel.app/api/v1/tarjetas/999999/bloquear [404 Not Found, 479B, 260ms]
+  √  Status 404 Not Found (tarjeta inexistente)
+  POST https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select [200 OK, 433B, 287ms]
+  √  La BD no registro ningun cambio
+
+┌─────────────────────────┬────────────────────┬────────────────────┐
+│                         │           executed │             failed │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│              iterations │                  1 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│                requests │                  9 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│            test-scripts │                  3 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│      prerequest-scripts │                  6 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│              assertions │                  8 │                  0 │
+├─────────────────────────┴────────────────────┴────────────────────┤
+│ total run duration: 2.9s                                          │
+├───────────────────────────────────────────────────────────────────┤
+│ total data received: 826B (approx)                                │
+├───────────────────────────────────────────────────────────────────┤
+│ average response time: 288ms [min: 249ms, max: 445ms, s.d.: 56ms] │
+└───────────────────────────────────────────────────────────────────┘

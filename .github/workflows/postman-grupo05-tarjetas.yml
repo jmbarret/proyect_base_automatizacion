@@ -1,0 +1,83 @@
+name: Postman Regression - Grupo 05 Tarjetas Credito/Debito (con reporte PDF en Python)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "postman/Grupo05-Tarjetas-Credito-Debito.postman_collection.json"
+      - ".github/workflows/postman-grupo05-tarjetas.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "postman/Grupo05-Tarjetas-Credito-Debito.postman_collection.json"
+      - ".github/workflows/postman-grupo05-tarjetas.yml"
+  workflow_dispatch:
+
+# El rate limit del sandbox es por api-key. Este workflow y el de JMeter del
+# grupo apuntan a la misma key, asi que comparten grupo de concurrencia para no
+# pisarse entre si.
+concurrency:
+  group: aiquaa-sandbox-grupo05
+  cancel-in-progress: false
+
+env:
+  API_BASE: https://aiquaa-sandbox-api.vercel.app
+  API_KEY: ${{ secrets.GRUPO05_API_KEY || 'sbx_demo_f581ca21e68a347288c94d71' }}
+
+jobs:
+  newman-regression:
+    name: Newman + reporte PDF (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Configurar Python (generador de PDF)
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias Node
+        run: npm install
+
+      - name: Instalar dependencias Python (reportlab, Pillow)
+        run: pip install -r skills/postman-newman-skill/reporter/requirements.txt
+
+      - name: Esperar a que haya cupo en el rate limit
+        run: |
+          bash grupos/grupo-05-tarjetas-credito-debito/scripts/esperar-cupo-api.sh             "${API_KEY}" "${API_BASE}"
+
+      - name: Ejecutar regresión Postman (Newman) - Grupo 05
+        run: >
+          npx newman run postman/Grupo05-Tarjetas-Credito-Debito.postman_collection.json
+          --env-var "Api-Key=${{ env.API_KEY }}"
+          --delay-request 2500
+          --reporters cli,json
+          --reporter-json-export newman/results.json
+
+      - name: Generar reporte PDF
+        if: always()
+        run: >
+          python skills/postman-newman-skill/reporter/newman_report.py
+          --results newman/results.json
+          --banner skills/postman-newman-skill/reporter/assets/banner_portada.png
+          --logo-aiquaa skills/postman-newman-skill/reporter/assets/logo_aiquaa_circle.png
+          --logo-postman skills/postman-newman-skill/reporter/assets/logo_postman_clean.png
+          --repo-url "${{ github.server_url }}/${{ github.repository }}"
+          --api-version "${{ github.sha }}"
+          --author "${{ github.triggering_actor }}"
+          --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          --output newman/report.pdf
+
+      - name: Subir informe PDF de la regresión
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: informe-regresion-grupo05
+          path: newman/report.pdf
+          retention-days: 7

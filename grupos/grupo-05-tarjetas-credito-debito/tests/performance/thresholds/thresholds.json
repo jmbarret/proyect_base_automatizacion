@@ -1,0 +1,21 @@
+{
+  "global": {
+    "scope": "global",
+    "maxErrorRate": 5,
+    "p95Ms": 2000
+  },
+  "operations": {
+    "GET - Obtener tarjeta por id": {
+      "maxErrorRate": 5,
+      "p95Ms": 2000
+    },
+    "POST - Emitir tarjeta": {
+      "maxErrorRate": 5,
+      "p95Ms": 2000
+    },
+    "GET - Consultar la tarjeta recien emitida": {
+      "maxErrorRate": 5,
+      "p95Ms": 2000
+    }
+  }
+}

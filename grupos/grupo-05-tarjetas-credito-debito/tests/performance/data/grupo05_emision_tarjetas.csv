@@ -1,0 +1,13 @@
+usuarioId,tipo,marca,codigoEsperado
+1,credito,visa,201
+2,debito,mastercard,201
+3,credito,mastercard,201
+4,debito,visa,201
+5,credito,visa,201
+6,debito,mastercard,201
+7,credito,visa,201
+8,debito,mastercard,201
+0,credito,visa,400
+999999,credito,visa,400
+9,invalido,visa,400
+10,credito,invalida,400
