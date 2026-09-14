@@ -18,6 +18,16 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
+        <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="Ritmo bajo el rate limit del sandbox (30 req/min)">
+          <stringProp name="TestPlan.comments">La API sandbox limita a 30 req/min por api-key y responde 429 al pasarse. Se pacea el grupo a 27 muestras/min para dejar margen.</stringProp>
+          <intProp name="calcMode">2</intProp>
+          <doubleProp>
+            <name>throughput</name>
+            <value>27.0</value>
+            <savedValue>0.0</savedValue>
+          </doubleProp>
+        </ConstantThroughputTimer>
+        <hashTree/>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Curso de Automatizacion de Pruebas "/>
         <hashTree>
           <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Ejemplo GET Ordenes" enabled="false"/>
@@ -338,7 +348,7 @@
                     <stringProp name="Argument.value">{&#xd;
     &quot;usuarioId&quot;: ${usuarioId},&#xd;
     &quot;proveedor&quot;: &quot;${proveedor}&quot;,&#xd;
-    &quot;numeroFactura&quot;: &quot;${numeroFactura}&quot;,&#xd;
+    &quot;numeroFactura&quot;: &quot;${numeroFactura}-${__P(runId,${__time(,)})}-${__threadNum}-${__counter(FALSE,)}&quot;,&#xd;
     &quot;monto&quot;: ${monto},&#xd;
     &quot;fechaVencimiento&quot;: &quot;${fechaVencimiento}&quot;&#xd;
 }</stringProp>

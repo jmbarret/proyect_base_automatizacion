@@ -1,0 +1,1814 @@
+{
+  "collection": {
+    "_": {
+      "postman_id": "bd0a7fff-0eca-45be-bac8-f31cc65c3b71",
+      "exporter_id": "40344229"
+    },
+    "item": [
+      {
+        "id": "f4a5dc62-2812-48f0-ba26-21abbf765f84",
+        "name": "CP 01- Solicitar recuperación con correo registrado",
+        "request": {
+          "url": {
+            "path": [
+              "api",
+              "v1",
+              "auth",
+              "forgot-password"
+            ],
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "{{apiKey}}"
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+            "options": {
+              "raw": {
+                "language": "json"
+              }
+            }
+          }
+        },
+        "response": [],
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "id": "74376545-a8ba-490e-a2ba-b73340a767fa",
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_solicitado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_solicitado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_solicitado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos en BD:', total);\r\n\r\n  pm.test('El evento password_reset_solicitado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+              ],
+              "_lastExecutionId": "766d5240-9ea3-479b-b439-d23958dfafbd"
+            }
+          },
+          {
+            "listen": "prerequest",
+            "script": {
+              "id": "9588f269-b193-4717-b1e5-a39b7e49bb53",
+              "type": "text/javascript",
+              "exec": [
+                "const sqlBody = {\r\n  sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n  params: [true]\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en pre-request (usuario):', err); return; }\r\n  const body = res.json();\r\n  if (!body.data || body.data.length === 0) {\r\n    console.error('No se encontró usuario activo en qa_training.usuarios');\r\n    return;\r\n  }\r\n  const usuario = body.data[0];\r\n  pm.collectionVariables.set('emailRegistrado', usuario.email);\r\n  pm.collectionVariables.set('usuarioIdRegistrado', usuario.id);\r\n\r\n  const countBody = {\r\n    sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n    params: [usuario.id, 'password_reset_solicitado']\r\n  };\r\n\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(countBody) }\r\n  }, function (err2, res2) {\r\n    if (err2) { console.error('Error en pre-request (baseline):', err2); return; }\r\n    const baseline = parseInt(res2.json().data[0].total, 10);\r\n    pm.collectionVariables.set('baselineCount', baseline);\r\n    console.log('Usuario:', usuario, '| baseline password_reset_solicitado:', baseline);\r\n  });\r\n});"
+              ],
+              "_lastExecutionId": "145a6219-0ac0-4d8a-bfae-fed83794ae2e"
+            }
+          }
+        ]
+      },
+      {
+        "id": "6bc97da7-58a8-4f22-a649-dbb9c74730aa",
+        "name": "CP 02 - Confirmar restablecimiento de contraseña",
+        "request": {
+          "url": {
+            "path": [
+              "api",
+              "v1",
+              "auth",
+              "reset-password"
+            ],
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "{{apiKey}}"
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{ \"usuarioId\": {{usuarioIdReset}} }",
+            "options": {
+              "raw": {
+                "language": "json"
+              }
+            }
+          }
+        },
+        "response": [],
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "id": "1da8ac82-3118-4a8f-911a-2af9bfdf4328",
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_completado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_completado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_completado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos password_reset_completado en BD:', total);\r\n\r\n  pm.test('El evento password_reset_completado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+              ],
+              "_lastExecutionId": "7bb21c4e-8a9f-480d-9d24-7727e33cdf45"
+            }
+          },
+          {
+            "listen": "prerequest",
+            "script": {
+              "id": "6a2eee5f-8e14-406d-b5bb-54430d3b24ad",
+              "type": "text/javascript",
+              "exec": [
+                "let usuarioId = pm.collectionVariables.get('usuarioIdRegistrado');\r\n\r\nif (usuarioId) {\r\n  pm.collectionVariables.set('usuarioIdReset', usuarioId);\r\n  console.log('Reutilizando usuario de CP 01:', usuarioId);\r\n} else {\r\n  // Fallback: si CP 02 se corre solo, sin CP 01 antes, traemos uno nuevo\r\n  const sqlBody = {\r\n    sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n    params: [true]\r\n  };\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n  }, function (err, res) {\r\n    if (err) { console.error('Error en pre-request:', err); return; }\r\n    const usuario = res.json().data[0];\r\n    pm.collectionVariables.set('usuarioIdReset', usuario.id);\r\n    console.log('Usuario nuevo (CP 02 corrido solo):', usuario);\r\n  });\r\n}"
+              ],
+              "_lastExecutionId": "0fc9d29e-8338-48fb-b74a-50d386c777a6"
+            }
+          }
+        ]
+      }
+    ],
+    "event": [],
+    "variable": [
+      {
+        "type": "any",
+        "value": "",
+        "key": "emailRegistrado"
+      },
+      {
+        "type": "any",
+        "value": "",
+        "key": "usuarioIdRegistrado"
+      },
+      {
+        "type": "any",
+        "value": "",
+        "key": "inicioTest"
+      },
+      {
+        "type": "any",
+        "value": "",
+        "key": "baselineCount"
+      },
+      {
+        "type": "any",
+        "value": "",
+        "key": "usuarioIdReset"
+      }
+    ],
+    "info": {
+      "_postman_id": "bd0a7fff-0eca-45be-bac8-f31cc65c3b71",
+      "name": "Grupo_01_Autenticacion_y_Acceso_con validación en BD_David_Cristaldo",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    }
+  },
+  "environment": {
+    "id": "57a83f37-b1bf-44fd-9167-caeba94502b2",
+    "values": [
+      {
+        "type": "any",
+        "value": "https://aiquaa-sandbox-api.vercel.app",
+        "key": "baseUrl"
+      },
+      {
+        "type": "any",
+        "value": "sbx_demo_f581ca21e68a347288c94d71",
+        "key": "apiKey"
+      }
+    ]
+  },
+  "globals": {
+    "id": "b57949e2-0f59-47bb-9ace-6174636926c8",
+    "values": []
+  },
+  "run": {
+    "stats": {
+      "iterations": {
+        "total": 1,
+        "pending": 0,
+        "failed": 0
+      },
+      "items": {
+        "total": 2,
+        "pending": 0,
+        "failed": 0
+      },
+      "scripts": {
+        "total": 4,
+        "pending": 0,
+        "failed": 0
+      },
+      "prerequests": {
+        "total": 2,
+        "pending": 0,
+        "failed": 0
+      },
+      "requests": {
+        "total": 6,
+        "pending": 0,
+        "failed": 0
+      },
+      "tests": {
+        "total": 2,
+        "pending": 0,
+        "failed": 0
+      },
+      "assertions": {
+        "total": 6,
+        "pending": 0,
+        "failed": 0
+      },
+      "testScripts": {
+        "total": 2,
+        "pending": 0,
+        "failed": 0
+      },
+      "prerequestScripts": {
+        "total": 2,
+        "pending": 0,
+        "failed": 0
+      }
+    },
+    "timings": {
+      "responseAverage": 332.6666666666667,
+      "responseMin": 273,
+      "responseMax": 551,
+      "responseSd": 98.9741829412544,
+      "dnsAverage": 0,
+      "dnsMin": 0,
+      "dnsMax": 0,
+      "dnsSd": 0,
+      "firstByteAverage": 0,
+      "firstByteMin": 0,
+      "firstByteMax": 0,
+      "firstByteSd": 0,
+      "started": 1788716354629,
+      "completed": 1788716357038
+    },
+    "executions": [
+      {
+        "cursor": {
+          "position": 0,
+          "iteration": 0,
+          "length": 2,
+          "cycles": 1,
+          "empty": false,
+          "eof": false,
+          "bof": true,
+          "cr": false,
+          "ref": "f7c47f18-13ae-4e64-a546-e9e7f56fa199",
+          "httpRequestId": "e2bc6b20-f855-4615-b8a7-6c5166c2ec76",
+          "scriptId": "74376545-a8ba-490e-a2ba-b73340a767fa",
+          "execution": "766d5240-9ea3-479b-b439-d23958dfafbd"
+        },
+        "item": {
+          "id": "f4a5dc62-2812-48f0-ba26-21abbf765f84",
+          "name": "CP 01- Solicitar recuperación con correo registrado",
+          "request": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "74376545-a8ba-490e-a2ba-b73340a767fa",
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_solicitado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_solicitado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_solicitado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos en BD:', total);\r\n\r\n  pm.test('El evento password_reset_solicitado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "766d5240-9ea3-479b-b439-d23958dfafbd"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "9588f269-b193-4717-b1e5-a39b7e49bb53",
+                "type": "text/javascript",
+                "exec": [
+                  "const sqlBody = {\r\n  sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n  params: [true]\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en pre-request (usuario):', err); return; }\r\n  const body = res.json();\r\n  if (!body.data || body.data.length === 0) {\r\n    console.error('No se encontró usuario activo en qa_training.usuarios');\r\n    return;\r\n  }\r\n  const usuario = body.data[0];\r\n  pm.collectionVariables.set('emailRegistrado', usuario.email);\r\n  pm.collectionVariables.set('usuarioIdRegistrado', usuario.id);\r\n\r\n  const countBody = {\r\n    sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n    params: [usuario.id, 'password_reset_solicitado']\r\n  };\r\n\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(countBody) }\r\n  }, function (err2, res2) {\r\n    if (err2) { console.error('Error en pre-request (baseline):', err2); return; }\r\n    const baseline = parseInt(res2.json().data[0].total, 10);\r\n    pm.collectionVariables.set('baselineCount', baseline);\r\n    console.log('Usuario:', usuario, '| baseline password_reset_solicitado:', baseline);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "145a6219-0ac0-4d8a-bfae-fed83794ae2e"
+              }
+            }
+          ]
+        },
+        "request": {
+          "url": {
+            "protocol": "https",
+            "path": [
+              "api",
+              "v1",
+              "sql",
+              "select"
+            ],
+            "host": [
+              "aiquaa-sandbox-api",
+              "vercel",
+              "app"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "sbx_demo_f581ca21e68a347288c94d71"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "7925e2fe-d9aa-4b82-b5b6-f9b35413cc4e",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "aiquaa-sandbox-api.vercel.app",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            },
+            {
+              "key": "Content-Length",
+              "value": "147",
+              "system": true
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{\"sql\":\"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\"params\":[\"14\",\"password_reset_solicitado\"]}"
+          }
+        },
+        "response": {
+          "id": "726b9d4a-ff08-4c8a-ace5-ca8116d71a4e",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Content-Encoding",
+              "value": "br"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Date",
+              "value": "Sun, 06 Sep 2026 17:39:17 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Vercel"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=63072000; includeSubDomains; preload"
+            },
+            {
+              "key": "X-Matched-Path",
+              "value": "/api/v1/sql/select"
+            },
+            {
+              "key": "X-Vercel-Cache",
+              "value": "MISS"
+            },
+            {
+              "key": "X-Vercel-Id",
+              "value": "gru1::iad1::pht2n-1788716357030-41be51507a82"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "stream": {
+            "type": "Buffer",
+            "data": [
+              123,
+              34,
+              100,
+              97,
+              116,
+              97,
+              34,
+              58,
+              91,
+              123,
+              34,
+              116,
+              111,
+              116,
+              97,
+              108,
+              34,
+              58,
+              34,
+              49,
+              34,
+              125,
+              93,
+              44,
+              34,
+              114,
+              111,
+              119,
+              67,
+              111,
+              117,
+              110,
+              116,
+              34,
+              58,
+              49,
+              125
+            ]
+          },
+          "cookie": [],
+          "responseTime": 274,
+          "responseSize": 37
+        },
+        "id": "9a8623a4-9d22-4056-8ec9-9ffed870ae1c",
+        "assertions": [
+          {
+            "assertion": "Status code es 200",
+            "skipped": false
+          },
+          {
+            "assertion": "La respuesta confirma tipo_evento password_reset_solicitado",
+            "skipped": false
+          },
+          {
+            "assertion": "El evento password_reset_solicitado quedó persistido en BD",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "position": 0,
+          "iteration": 0,
+          "length": 2,
+          "cycles": 1,
+          "empty": false,
+          "eof": false,
+          "bof": true,
+          "cr": false,
+          "ref": "f7c47f18-13ae-4e64-a546-e9e7f56fa199",
+          "httpRequestId": "e2bc6b20-f855-4615-b8a7-6c5166c2ec76",
+          "scriptId": "74376545-a8ba-490e-a2ba-b73340a767fa",
+          "execution": "766d5240-9ea3-479b-b439-d23958dfafbd"
+        },
+        "item": {
+          "id": "f4a5dc62-2812-48f0-ba26-21abbf765f84",
+          "name": "CP 01- Solicitar recuperación con correo registrado",
+          "request": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "74376545-a8ba-490e-a2ba-b73340a767fa",
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_solicitado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_solicitado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_solicitado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos en BD:', total);\r\n\r\n  pm.test('El evento password_reset_solicitado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "766d5240-9ea3-479b-b439-d23958dfafbd"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "9588f269-b193-4717-b1e5-a39b7e49bb53",
+                "type": "text/javascript",
+                "exec": [
+                  "const sqlBody = {\r\n  sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n  params: [true]\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en pre-request (usuario):', err); return; }\r\n  const body = res.json();\r\n  if (!body.data || body.data.length === 0) {\r\n    console.error('No se encontró usuario activo en qa_training.usuarios');\r\n    return;\r\n  }\r\n  const usuario = body.data[0];\r\n  pm.collectionVariables.set('emailRegistrado', usuario.email);\r\n  pm.collectionVariables.set('usuarioIdRegistrado', usuario.id);\r\n\r\n  const countBody = {\r\n    sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n    params: [usuario.id, 'password_reset_solicitado']\r\n  };\r\n\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(countBody) }\r\n  }, function (err2, res2) {\r\n    if (err2) { console.error('Error en pre-request (baseline):', err2); return; }\r\n    const baseline = parseInt(res2.json().data[0].total, 10);\r\n    pm.collectionVariables.set('baselineCount', baseline);\r\n    console.log('Usuario:', usuario, '| baseline password_reset_solicitado:', baseline);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "145a6219-0ac0-4d8a-bfae-fed83794ae2e"
+              }
+            }
+          ]
+        },
+        "request": {
+          "url": {
+            "protocol": "https",
+            "path": [
+              "api",
+              "v1",
+              "sql",
+              "select"
+            ],
+            "host": [
+              "aiquaa-sandbox-api",
+              "vercel",
+              "app"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "sbx_demo_f581ca21e68a347288c94d71"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "7925e2fe-d9aa-4b82-b5b6-f9b35413cc4e",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "aiquaa-sandbox-api.vercel.app",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            },
+            {
+              "key": "Content-Length",
+              "value": "147",
+              "system": true
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{\"sql\":\"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\"params\":[\"14\",\"password_reset_solicitado\"]}"
+          }
+        },
+        "response": {
+          "id": "726b9d4a-ff08-4c8a-ace5-ca8116d71a4e",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Content-Encoding",
+              "value": "br"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Date",
+              "value": "Sun, 06 Sep 2026 17:39:17 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Vercel"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=63072000; includeSubDomains; preload"
+            },
+            {
+              "key": "X-Matched-Path",
+              "value": "/api/v1/sql/select"
+            },
+            {
+              "key": "X-Vercel-Cache",
+              "value": "MISS"
+            },
+            {
+              "key": "X-Vercel-Id",
+              "value": "gru1::iad1::pht2n-1788716357030-41be51507a82"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "stream": {
+            "type": "Buffer",
+            "data": [
+              123,
+              34,
+              100,
+              97,
+              116,
+              97,
+              34,
+              58,
+              91,
+              123,
+              34,
+              116,
+              111,
+              116,
+              97,
+              108,
+              34,
+              58,
+              34,
+              49,
+              34,
+              125,
+              93,
+              44,
+              34,
+              114,
+              111,
+              119,
+              67,
+              111,
+              117,
+              110,
+              116,
+              34,
+              58,
+              49,
+              125
+            ]
+          },
+          "cookie": [],
+          "responseTime": 274,
+          "responseSize": 37
+        },
+        "id": "9a8623a4-9d22-4056-8ec9-9ffed870ae1c",
+        "assertions": [
+          {
+            "assertion": "Status code es 200",
+            "skipped": false
+          },
+          {
+            "assertion": "La respuesta confirma tipo_evento password_reset_solicitado",
+            "skipped": false
+          },
+          {
+            "assertion": "El evento password_reset_solicitado quedó persistido en BD",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "position": 0,
+          "iteration": 0,
+          "length": 2,
+          "cycles": 1,
+          "empty": false,
+          "eof": false,
+          "bof": true,
+          "cr": false,
+          "ref": "f7c47f18-13ae-4e64-a546-e9e7f56fa199",
+          "httpRequestId": "e2bc6b20-f855-4615-b8a7-6c5166c2ec76",
+          "scriptId": "74376545-a8ba-490e-a2ba-b73340a767fa",
+          "execution": "766d5240-9ea3-479b-b439-d23958dfafbd"
+        },
+        "item": {
+          "id": "f4a5dc62-2812-48f0-ba26-21abbf765f84",
+          "name": "CP 01- Solicitar recuperación con correo registrado",
+          "request": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "74376545-a8ba-490e-a2ba-b73340a767fa",
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_solicitado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_solicitado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_solicitado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos en BD:', total);\r\n\r\n  pm.test('El evento password_reset_solicitado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "766d5240-9ea3-479b-b439-d23958dfafbd"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "9588f269-b193-4717-b1e5-a39b7e49bb53",
+                "type": "text/javascript",
+                "exec": [
+                  "const sqlBody = {\r\n  sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n  params: [true]\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en pre-request (usuario):', err); return; }\r\n  const body = res.json();\r\n  if (!body.data || body.data.length === 0) {\r\n    console.error('No se encontró usuario activo en qa_training.usuarios');\r\n    return;\r\n  }\r\n  const usuario = body.data[0];\r\n  pm.collectionVariables.set('emailRegistrado', usuario.email);\r\n  pm.collectionVariables.set('usuarioIdRegistrado', usuario.id);\r\n\r\n  const countBody = {\r\n    sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n    params: [usuario.id, 'password_reset_solicitado']\r\n  };\r\n\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(countBody) }\r\n  }, function (err2, res2) {\r\n    if (err2) { console.error('Error en pre-request (baseline):', err2); return; }\r\n    const baseline = parseInt(res2.json().data[0].total, 10);\r\n    pm.collectionVariables.set('baselineCount', baseline);\r\n    console.log('Usuario:', usuario, '| baseline password_reset_solicitado:', baseline);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "145a6219-0ac0-4d8a-bfae-fed83794ae2e"
+              }
+            }
+          ]
+        },
+        "request": {
+          "url": {
+            "protocol": "https",
+            "path": [
+              "api",
+              "v1",
+              "sql",
+              "select"
+            ],
+            "host": [
+              "aiquaa-sandbox-api",
+              "vercel",
+              "app"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "sbx_demo_f581ca21e68a347288c94d71"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "7925e2fe-d9aa-4b82-b5b6-f9b35413cc4e",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "aiquaa-sandbox-api.vercel.app",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            },
+            {
+              "key": "Content-Length",
+              "value": "147",
+              "system": true
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{\"sql\":\"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\"params\":[\"14\",\"password_reset_solicitado\"]}"
+          }
+        },
+        "response": {
+          "id": "726b9d4a-ff08-4c8a-ace5-ca8116d71a4e",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Content-Encoding",
+              "value": "br"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Date",
+              "value": "Sun, 06 Sep 2026 17:39:17 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Vercel"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=63072000; includeSubDomains; preload"
+            },
+            {
+              "key": "X-Matched-Path",
+              "value": "/api/v1/sql/select"
+            },
+            {
+              "key": "X-Vercel-Cache",
+              "value": "MISS"
+            },
+            {
+              "key": "X-Vercel-Id",
+              "value": "gru1::iad1::pht2n-1788716357030-41be51507a82"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "stream": {
+            "type": "Buffer",
+            "data": [
+              123,
+              34,
+              100,
+              97,
+              116,
+              97,
+              34,
+              58,
+              91,
+              123,
+              34,
+              116,
+              111,
+              116,
+              97,
+              108,
+              34,
+              58,
+              34,
+              49,
+              34,
+              125,
+              93,
+              44,
+              34,
+              114,
+              111,
+              119,
+              67,
+              111,
+              117,
+              110,
+              116,
+              34,
+              58,
+              49,
+              125
+            ]
+          },
+          "cookie": [],
+          "responseTime": 274,
+          "responseSize": 37
+        },
+        "id": "9a8623a4-9d22-4056-8ec9-9ffed870ae1c",
+        "assertions": [
+          {
+            "assertion": "Status code es 200",
+            "skipped": false
+          },
+          {
+            "assertion": "La respuesta confirma tipo_evento password_reset_solicitado",
+            "skipped": false
+          },
+          {
+            "assertion": "El evento password_reset_solicitado quedó persistido en BD",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "position": 0,
+          "iteration": 0,
+          "length": 2,
+          "cycles": 1,
+          "empty": false,
+          "eof": false,
+          "bof": true,
+          "cr": false,
+          "ref": "f7c47f18-13ae-4e64-a546-e9e7f56fa199",
+          "httpRequestId": "e2bc6b20-f855-4615-b8a7-6c5166c2ec76",
+          "scriptId": "74376545-a8ba-490e-a2ba-b73340a767fa",
+          "execution": "766d5240-9ea3-479b-b439-d23958dfafbd"
+        },
+        "item": {
+          "id": "f4a5dc62-2812-48f0-ba26-21abbf765f84",
+          "name": "CP 01- Solicitar recuperación con correo registrado",
+          "request": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "74376545-a8ba-490e-a2ba-b73340a767fa",
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_solicitado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_solicitado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_solicitado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos en BD:', total);\r\n\r\n  pm.test('El evento password_reset_solicitado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "766d5240-9ea3-479b-b439-d23958dfafbd"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "9588f269-b193-4717-b1e5-a39b7e49bb53",
+                "type": "text/javascript",
+                "exec": [
+                  "const sqlBody = {\r\n  sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n  params: [true]\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en pre-request (usuario):', err); return; }\r\n  const body = res.json();\r\n  if (!body.data || body.data.length === 0) {\r\n    console.error('No se encontró usuario activo en qa_training.usuarios');\r\n    return;\r\n  }\r\n  const usuario = body.data[0];\r\n  pm.collectionVariables.set('emailRegistrado', usuario.email);\r\n  pm.collectionVariables.set('usuarioIdRegistrado', usuario.id);\r\n\r\n  const countBody = {\r\n    sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n    params: [usuario.id, 'password_reset_solicitado']\r\n  };\r\n\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(countBody) }\r\n  }, function (err2, res2) {\r\n    if (err2) { console.error('Error en pre-request (baseline):', err2); return; }\r\n    const baseline = parseInt(res2.json().data[0].total, 10);\r\n    pm.collectionVariables.set('baselineCount', baseline);\r\n    console.log('Usuario:', usuario, '| baseline password_reset_solicitado:', baseline);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "145a6219-0ac0-4d8a-bfae-fed83794ae2e"
+              }
+            }
+          ]
+        },
+        "request": {
+          "url": {
+            "protocol": "https",
+            "path": [
+              "api",
+              "v1",
+              "sql",
+              "select"
+            ],
+            "host": [
+              "aiquaa-sandbox-api",
+              "vercel",
+              "app"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "sbx_demo_f581ca21e68a347288c94d71"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "7925e2fe-d9aa-4b82-b5b6-f9b35413cc4e",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "aiquaa-sandbox-api.vercel.app",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            },
+            {
+              "key": "Content-Length",
+              "value": "147",
+              "system": true
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{\"sql\":\"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\"params\":[\"14\",\"password_reset_solicitado\"]}"
+          }
+        },
+        "response": {
+          "id": "726b9d4a-ff08-4c8a-ace5-ca8116d71a4e",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Content-Encoding",
+              "value": "br"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Date",
+              "value": "Sun, 06 Sep 2026 17:39:17 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Vercel"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=63072000; includeSubDomains; preload"
+            },
+            {
+              "key": "X-Matched-Path",
+              "value": "/api/v1/sql/select"
+            },
+            {
+              "key": "X-Vercel-Cache",
+              "value": "MISS"
+            },
+            {
+              "key": "X-Vercel-Id",
+              "value": "gru1::iad1::pht2n-1788716357030-41be51507a82"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "stream": {
+            "type": "Buffer",
+            "data": [
+              123,
+              34,
+              100,
+              97,
+              116,
+              97,
+              34,
+              58,
+              91,
+              123,
+              34,
+              116,
+              111,
+              116,
+              97,
+              108,
+              34,
+              58,
+              34,
+              49,
+              34,
+              125,
+              93,
+              44,
+              34,
+              114,
+              111,
+              119,
+              67,
+              111,
+              117,
+              110,
+              116,
+              34,
+              58,
+              49,
+              125
+            ]
+          },
+          "cookie": [],
+          "responseTime": 274,
+          "responseSize": 37
+        },
+        "id": "9a8623a4-9d22-4056-8ec9-9ffed870ae1c",
+        "assertions": [
+          {
+            "assertion": "Status code es 200",
+            "skipped": false
+          },
+          {
+            "assertion": "La respuesta confirma tipo_evento password_reset_solicitado",
+            "skipped": false
+          },
+          {
+            "assertion": "El evento password_reset_solicitado quedó persistido en BD",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "ref": "0c712139-7978-422b-af17-a6510e074e66",
+          "length": 2,
+          "cycles": 1,
+          "position": 1,
+          "iteration": 0,
+          "httpRequestId": "85b5b046-a85b-4d03-9dd9-af72defdd27b",
+          "scriptId": "1da8ac82-3118-4a8f-911a-2af9bfdf4328",
+          "execution": "7bb21c4e-8a9f-480d-9d24-7727e33cdf45"
+        },
+        "item": {
+          "id": "6bc97da7-58a8-4f22-a649-dbb9c74730aa",
+          "name": "CP 02 - Confirmar restablecimiento de contraseña",
+          "request": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"usuarioId\": {{usuarioIdReset}} }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "1da8ac82-3118-4a8f-911a-2af9bfdf4328",
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_completado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_completado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_completado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos password_reset_completado en BD:', total);\r\n\r\n  pm.test('El evento password_reset_completado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "7bb21c4e-8a9f-480d-9d24-7727e33cdf45"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "6a2eee5f-8e14-406d-b5bb-54430d3b24ad",
+                "type": "text/javascript",
+                "exec": [
+                  "let usuarioId = pm.collectionVariables.get('usuarioIdRegistrado');\r\n\r\nif (usuarioId) {\r\n  pm.collectionVariables.set('usuarioIdReset', usuarioId);\r\n  console.log('Reutilizando usuario de CP 01:', usuarioId);\r\n} else {\r\n  // Fallback: si CP 02 se corre solo, sin CP 01 antes, traemos uno nuevo\r\n  const sqlBody = {\r\n    sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n    params: [true]\r\n  };\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n  }, function (err, res) {\r\n    if (err) { console.error('Error en pre-request:', err); return; }\r\n    const usuario = res.json().data[0];\r\n    pm.collectionVariables.set('usuarioIdReset', usuario.id);\r\n    console.log('Usuario nuevo (CP 02 corrido solo):', usuario);\r\n  });\r\n}"
+                ],
+                "_lastExecutionId": "0fc9d29e-8338-48fb-b74a-50d386c777a6"
+              }
+            }
+          ]
+        },
+        "request": {
+          "url": {
+            "protocol": "https",
+            "path": [
+              "api",
+              "v1",
+              "sql",
+              "select"
+            ],
+            "host": [
+              "aiquaa-sandbox-api",
+              "vercel",
+              "app"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "sbx_demo_f581ca21e68a347288c94d71"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "8d3d8a84-9b48-4ab0-931c-77d707508baf",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "aiquaa-sandbox-api.vercel.app",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            },
+            {
+              "key": "Content-Length",
+              "value": "147",
+              "system": true
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{\"sql\":\"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\"params\":[\"14\",\"password_reset_completado\"]}"
+          }
+        },
+        "response": {
+          "id": "1760cd83-8c9e-4f7a-864e-ffd5148f34b0",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Content-Encoding",
+              "value": "br"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Date",
+              "value": "Sun, 06 Sep 2026 17:39:17 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Vercel"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=63072000; includeSubDomains; preload"
+            },
+            {
+              "key": "X-Matched-Path",
+              "value": "/api/v1/sql/select"
+            },
+            {
+              "key": "X-Vercel-Cache",
+              "value": "MISS"
+            },
+            {
+              "key": "X-Vercel-Id",
+              "value": "gru1::iad1::8v7td-1788716357756-aafe5d11a044"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "stream": {
+            "type": "Buffer",
+            "data": [
+              123,
+              34,
+              100,
+              97,
+              116,
+              97,
+              34,
+              58,
+              91,
+              123,
+              34,
+              116,
+              111,
+              116,
+              97,
+              108,
+              34,
+              58,
+              34,
+              49,
+              34,
+              125,
+              93,
+              44,
+              34,
+              114,
+              111,
+              119,
+              67,
+              111,
+              117,
+              110,
+              116,
+              34,
+              58,
+              49,
+              125
+            ]
+          },
+          "cookie": [],
+          "responseTime": 288,
+          "responseSize": 37
+        },
+        "id": "c3be7bb3-6a45-4c4c-a2a7-88f389b58b1a",
+        "assertions": [
+          {
+            "assertion": "Status code es 200",
+            "skipped": false
+          },
+          {
+            "assertion": "La respuesta confirma tipo_evento password_reset_completado",
+            "skipped": false
+          },
+          {
+            "assertion": "El evento password_reset_completado quedó persistido en BD",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "ref": "0c712139-7978-422b-af17-a6510e074e66",
+          "length": 2,
+          "cycles": 1,
+          "position": 1,
+          "iteration": 0,
+          "httpRequestId": "85b5b046-a85b-4d03-9dd9-af72defdd27b",
+          "scriptId": "1da8ac82-3118-4a8f-911a-2af9bfdf4328",
+          "execution": "7bb21c4e-8a9f-480d-9d24-7727e33cdf45"
+        },
+        "item": {
+          "id": "6bc97da7-58a8-4f22-a649-dbb9c74730aa",
+          "name": "CP 02 - Confirmar restablecimiento de contraseña",
+          "request": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"usuarioId\": {{usuarioIdReset}} }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "1da8ac82-3118-4a8f-911a-2af9bfdf4328",
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_completado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_completado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_completado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos password_reset_completado en BD:', total);\r\n\r\n  pm.test('El evento password_reset_completado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+                ],
+                "_lastExecutionId": "7bb21c4e-8a9f-480d-9d24-7727e33cdf45"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "6a2eee5f-8e14-406d-b5bb-54430d3b24ad",
+                "type": "text/javascript",
+                "exec": [
+                  "let usuarioId = pm.collectionVariables.get('usuarioIdRegistrado');\r\n\r\nif (usuarioId) {\r\n  pm.collectionVariables.set('usuarioIdReset', usuarioId);\r\n  console.log('Reutilizando usuario de CP 01:', usuarioId);\r\n} else {\r\n  // Fallback: si CP 02 se corre solo, sin CP 01 antes, traemos uno nuevo\r\n  const sqlBody = {\r\n    sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n    params: [true]\r\n  };\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n  }, function (err, res) {\r\n    if (err) { console.error('Error en pre-request:', err); return; }\r\n    const usuario = res.json().data[0];\r\n    pm.collectionVariables.set('usuarioIdReset', usuario.id);\r\n    console.log('Usuario nuevo (CP 02 corrido solo):', usuario);\r\n  });\r\n}"
+                ],
+                "_lastExecutionId": "0fc9d29e-8338-48fb-b74a-50d386c777a6"
+              }
+            }
+          ]
+        },
+        "request": {
+          "url": {
+            "protocol": "https",
+            "path": [
+              "api",
+              "v1",
+              "sql",
+              "select"
+            ],
+            "host": [
+              "aiquaa-sandbox-api",
+              "vercel",
+              "app"
+            ],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "x-api-key",
+              "value": "sbx_demo_f581ca21e68a347288c94d71"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "8d3d8a84-9b48-4ab0-931c-77d707508baf",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "aiquaa-sandbox-api.vercel.app",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            },
+            {
+              "key": "Content-Length",
+              "value": "147",
+              "system": true
+            }
+          ],
+          "method": "POST",
+          "body": {
+            "mode": "raw",
+            "raw": "{\"sql\":\"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\"params\":[\"14\",\"password_reset_completado\"]}"
+          }
+        },
+        "response": {
+          "id": "1760cd83-8c9e-4f7a-864e-ffd5148f34b0",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Content-Encoding",
+              "value": "br"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Date",
+              "value": "Sun, 06 Sep 2026 17:39:17 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Vercel"
+            },
+            {
+              "key": "Strict-Transport-Security",
+              "value": "max-age=63072000; includeSubDomains; preload"
+            },
+            {
+              "key": "X-Matched-Path",
+              "value": "/api/v1/sql/select"
+            },
+            {
+              "key": "X-Vercel-Cache",
+              "value": "MISS"
+            },
+            {
+              "key": "X-Vercel-Id",
+              "value": "gru1::iad1::8v7td-1788716357756-aafe5d11a044"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "stream": {
+            "type": "Buffer",
+            "data": [
+              123,
+              34,
+              100,
+              97,
+              116,
+              97,
+              34,
+              58,
+              91,
+              123,
+              34,
+              116,
+              111,
+              116,
+              97,
+              108,
+              34,
+              58,
+              34,
+              49,
+              34,
+              125,
+              93,
+              44,
+              34,
+              114,
+              111,
+              119,
+              67,
+              111,
+              117,
+              110,
+              116,
+              34,
+              58,
+              49,
+              125
+            ]
+          },
+          "cookie": [],
+          "responseTime": 288,
+          "responseSize": 37
+        },
+        "id": "c3be7bb3-6a45-4c4c-a2a7-88f389b58b1a",
+        "assertions": [
+          {
+            "assertion": "Status code es 200",
+            "skipped": false
+          },
+          {
+            "assertion": "La respuesta confirma tipo_evento password_reset_completado",
+            "skipped": false
+          },
+          {
+            "assertion": "El evento password_reset_completado quedó persistido en BD",
+            "skipped": false
+          }
+        ]
+      }
+    ],
+    "transfers": {
+      "responseTotal": 556
+    },
+    "failures": [],
+    "error": null
+  }
+}

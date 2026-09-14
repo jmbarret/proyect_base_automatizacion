@@ -9,6 +9,7 @@
     "test:e2e:report": "playwright show-report",
     "test:api": "newman run postman/AIQUAA-Lab-Template.postman_collection.json -e postman/local.postman_environment.json",
     "test:bdd": "cucumber-js \"features/**/*.feature\" \"grupos/**/*.feature\"",
+    "test:bdd:demo": "cucumber-js --profile demo",
     "smoke": "playwright test tests/e2e/smoke.spec.ts",
     "verify": "npm run test:api && npm run test:e2e"
   },
@@ -16,6 +17,8 @@
     "@cucumber/cucumber": "^11.0.1",
     "@playwright/test": "^1.54.2",
     "dotenv": "^17.2.3",
-    "newman": "^6.2.1"
+    "newman": "^6.2.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
   }
 }

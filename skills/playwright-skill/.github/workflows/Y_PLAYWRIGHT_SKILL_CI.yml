@@ -1,0 +1,37 @@
+name: CI — playwright-skill
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate TypeScript examples syntax
+        run: |
+          npm install -D typescript @playwright/test --silent
+          npx tsc --noEmit --strict \
+            examples/playwright.config.ts \
+            examples/T_EXAMPLE.spec.ts \
+            examples/auth.setup.ts \
+            && echo "TS OK"
+
+      - name: Validate pipeline YML
+        run: |
+          python3 -c "import yaml; yaml.safe_load(open('examples/Y_EXAMPLE_playwright.yml'))" \
+            && echo "Y_ OK"
+
+      - name: Install reporter deps
+        run: pip install reportlab --quiet && echo "deps OK"
+
+      - name: Smoke test reporter import
+        run: |
+          python3 -c "
+          import reporter.playwright_report as r
+          print('reporter import OK')
+          print('funciones OK:', hasattr(r, 'parse_results') and hasattr(r, 'generate_report'))
+          "

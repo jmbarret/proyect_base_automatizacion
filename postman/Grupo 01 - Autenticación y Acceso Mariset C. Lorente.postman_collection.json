@@ -1,0 +1,221 @@
+{
+  "info": {
+    "_postman_id": "efc5f40f-3e57-4f39-b58e-78909a782329",
+    "name": "Grupo 01 - Autenticación y Acceso Mariset C. Lorente",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "41799557"
+  },
+  "item": [
+    {
+      "name": "01- Login rechazado con credenciales inválidas",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El login con credenciales inválidas es rechazado\", function () {\n    pm.response.to.have.status(400);\n});\n\npm.test(\"La respuesta es JSON\", function () {\n    pm.response.to.be.json;\n});\n\npm.test(\"La respuesta contiene información del error de autenticación\", function () {\n    const jsonData = pm.response.json();\n    pm.expect(jsonData).to.be.an(\"object\");\n});\n\npm.test(\"Tiempo de respuesta menor a 3000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(3000);\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabaseAnonKey}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{supabaseAnonKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{invalidPassword}}\",\n  \"gotrue_meta_security\": {}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://cbkctkpyxwbufvbwxogp.supabase.co/auth/v1/token?grant_type=password",
+          "protocol": "https",
+          "host": [
+            "cbkctkpyxwbufvbwxogp",
+            "supabase",
+            "co"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "token"
+          ],
+          "query": [
+            {
+              "key": "grant_type",
+              "value": "password"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Login con correo válido ingresado con espacios",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El login con correo con espacios es rechazado\", function () {\n    pm.response.to.have.status(400);\n});\n\npm.test(\"La respuesta es JSON\", function () {\n    pm.response.to.be.json;\n});\n\npm.test(\"La API devuelve credenciales inválidas\", function () {\n    const jsonData = pm.response.json();\n\n    pm.expect(jsonData).to.have.property(\"error_code\");\n    pm.expect(jsonData.error_code).to.eql(\"invalid_credentials\");\n\n    pm.expect(jsonData).to.have.property(\"msg\");\n    pm.expect(jsonData.msg).to.eql(\"Invalid login credentials\");\n});\n\npm.test(\"Tiempo de respuesta menor a 3000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(3000);\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabaseAnonKey}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{supabaseAnonKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \" {{testEmail}} \",\n  \"password\": \"{{testPassword}}\",\n  \"gotrue_meta_security\": {}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://cbkctkpyxwbufvbwxogp.supabase.co/auth/v1/token?grant_type=password",
+          "protocol": "https",
+          "host": [
+            "cbkctkpyxwbufvbwxogp",
+            "supabase",
+            "co"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "token"
+          ],
+          "query": [
+            {
+              "key": "grant_type",
+              "value": "password"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Login con usuario inactivo obtenido dinámicamente desde BD",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.sendRequest({\n    url: pm.variables.get(\"baseUrl\") + \"/api/v1/sql/select\",\n    method: \"POST\",\n    header: {\n        \"Content-Type\": \"application/json\",\n        \"x-api-key\": pm.variables.get(\"apiKey\")\n    },\n    body: {\n        mode: \"raw\",\n        raw: JSON.stringify({\n            sql: \"SELECT id, nombre, email, activo FROM usuarios WHERE activo = false ORDER BY id LIMIT 1\",\n            params: []\n        })\n    }\n}, function (err, res) {\n    if (err) {\n        console.log(\"Error consultando BD:\", err);\n        return;\n    }\n\n    const json = res.json();\n    console.log(\"Respuesta SQL:\", json);\n\n    const filas = json.data || [];\n\n    if (filas.length === 0) {\n        throw new Error(\"No se encontró ningún usuario activo en la BD\");\n    }\n\n    const usuario = filas[0];\n\n    pm.environment.set(\"emailBD\", usuario.email);\n    pm.environment.set(\"usuarioIdBD\", usuario.id);\n\n    console.log(\"Usuario obtenido desde BD:\", usuario.id, usuario.email);\n});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Usuario inactivo rechazado con status 400\", function () {\n    pm.response.to.have.status(400);\n});\n\npm.test(\"La respuesta es JSON\", function () {\n    pm.response.to.be.json;\n});\n\npm.test(\"El error corresponde a VALIDATION_ERROR\", function () {\n    const json = pm.response.json();\n\n    pm.expect(json).to.have.property(\"error\");\n    pm.expect(json.error).to.have.property(\"code\");\n    pm.expect(json.error.code).to.eql(\"VALIDATION_ERROR\");\n});\n\npm.test(\"Se utilizó un usuario obtenido dinámicamente desde BD\", function () {\n    const emailBD = pm.environment.get(\"emailBD\");\n    const usuarioIdBD = pm.environment.get(\"usuarioIdBD\");\n\n    pm.expect(emailBD).to.be.a(\"string\").and.not.empty;\n    pm.expect(usuarioIdBD).to.exist;\n});\n\nconsole.log(\"Email inactivo obtenido desde BD:\", pm.environment.get(\"emailBD\"));\nconsole.log(\"Usuario ID obtenido desde BD:\", pm.environment.get(\"usuarioIdBD\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{emailBD}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "candidateId",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "supabaseAnonKey",
+      "value": ""
+    }
+    ,
+    {
+      "key": "testEmail",
+      "value": ""
+    },
+    {
+      "key": "testPassword",
+      "value": ""
+    },
+    {
+      "key": "invalidPassword",
+      "value": ""
+    }
+  ]
+}

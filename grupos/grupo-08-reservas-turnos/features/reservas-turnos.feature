@@ -55,4 +55,30 @@ Scenario: Intentar reservar sin completar todos los datos requeridos
 	Then el sistema debe rechazar la reserva y mostrar un mensaje indicando que el campo obligatorio debe ser completado
 
 
+
   # TODO: Scenario: edge case
+
+  Scenario: Cancelación de turno exitosa
+    Given el usuario tiene un turno reservado
+    When el usuario solicita cancelar el turno
+    Then el sistema debe liberar el horario para otros usuarios
+
+
+Scenario: Confirmación de asistencia antes del turno
+Given el usuario tiene una reserva en estado "Pendiente de confirmación"
+And el sistema envía una notificación de recordatorio 24 horas antes
+When el paciente presiona el botón "Confirmar Asistencia"
+Then el sistema debe cambiar el estado del turno a "Confirmado por el usuario"
+
+    
+Scenario: Intentar cancelar un turno fuera del plazo permitido de cancelación
+Given la política del local requiere cancelar con al menos 2 horas de anticipación
+And el paciente posee un turno dentro de 30 minutos
+When el usuaro solicita la cancelación del turno
+Then el sistema debe rechazar la cancelación
+  
+  
+Scenario: Cambio de horario de atención en día festivo
+Given el local modifca su horario de atención para un día festivo de "09:00 a 12:00"
+When el paciente intenta buscar turnos para ese día festivo a las "16:00"
+Then el sistema debe restringir los los horarios visibles únicamente al rango de "09:00 a 12:00"

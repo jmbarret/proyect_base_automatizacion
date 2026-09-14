@@ -1,0 +1,148 @@
+{
+  "info": {
+    "_postman_id": "bd0a7fff-0eca-45be-bac8-f31cc65c3b71",
+    "name": "Grupo_01_Autenticacion_y_Acceso_con validación en BD_David_Cristaldo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "40344229"
+  },
+  "item": [
+    {
+      "name": "CP 01- Solicitar recuperación con correo registrado",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_solicitado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_solicitado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_solicitado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos en BD:', total);\r\n\r\n  pm.test('El evento password_reset_solicitado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const sqlBody = {\r\n  sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n  params: [true]\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en pre-request (usuario):', err); return; }\r\n  const body = res.json();\r\n  if (!body.data || body.data.length === 0) {\r\n    console.error('No se encontró usuario activo en qa_training.usuarios');\r\n    return;\r\n  }\r\n  const usuario = body.data[0];\r\n  pm.collectionVariables.set('emailRegistrado', usuario.email);\r\n  pm.collectionVariables.set('usuarioIdRegistrado', usuario.id);\r\n\r\n  const countBody = {\r\n    sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n    params: [usuario.id, 'password_reset_solicitado']\r\n  };\r\n\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(countBody) }\r\n  }, function (err2, res2) {\r\n    if (err2) { console.error('Error en pre-request (baseline):', err2); return; }\r\n    const baseline = parseInt(res2.json().data[0].total, 10);\r\n    pm.collectionVariables.set('baselineCount', baseline);\r\n    console.log('Usuario:', usuario, '| baseline password_reset_solicitado:', baseline);\r\n  });\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "forgot-password"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "CP 02 - Confirmar restablecimiento de contraseña",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200', function () {\r\n  pm.response.to.have.status(200);\r\n});\r\n\r\nconst respBody = pm.response.json();\r\nconst usuarioIdReal = respBody.data.usuario_id;\r\n\r\npm.test('La respuesta confirma tipo_evento password_reset_completado', function () {\r\n  pm.expect(respBody.data.tipo_evento).to.eql('password_reset_completado');\r\n});\r\n\r\nconst sqlBody = {\r\n  sql: \"SELECT COUNT(*) as total FROM qa_training.sesiones WHERE usuario_id = $1 AND tipo_evento = $2\",\r\n  params: [usuarioIdReal, 'password_reset_completado']\r\n};\r\n\r\npm.sendRequest({\r\n  url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n  method: 'POST',\r\n  header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n  body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n}, function (err, res) {\r\n  if (err) { console.error('Error en post-request:', err); return; }\r\n  const total = parseInt(res.json().data[0].total, 10);\r\n  console.log('usuario_id real (de la respuesta):', usuarioIdReal, '| eventos password_reset_completado en BD:', total);\r\n\r\n  pm.test('El evento password_reset_completado quedó persistido en BD', function () {\r\n    pm.expect(total).to.be.above(0);\r\n  });\r\n});"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let usuarioId = pm.collectionVariables.get('usuarioIdRegistrado');\r\n\r\nif (usuarioId) {\r\n  pm.collectionVariables.set('usuarioIdReset', usuarioId);\r\n  console.log('Reutilizando usuario de CP 01:', usuarioId);\r\n} else {\r\n  // Fallback: si CP 02 se corre solo, sin CP 01 antes, traemos uno nuevo\r\n  const sqlBody = {\r\n    sql: \"SELECT id, email FROM qa_training.usuarios WHERE activo = $1 ORDER BY random() LIMIT 1\",\r\n    params: [true]\r\n  };\r\n  pm.sendRequest({\r\n    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },\r\n    body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r\n  }, function (err, res) {\r\n    if (err) { console.error('Error en pre-request:', err); return; }\r\n    const usuario = res.json().data[0];\r\n    pm.collectionVariables.set('usuarioIdReset', usuario.id);\r\n    console.log('Usuario nuevo (CP 02 corrido solo):', usuario);\r\n  });\r\n}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"usuarioId\": {{usuarioIdReset}} }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "reset-password"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "emailRegistrado",
+      "value": ""
+    },
+    {
+      "key": "usuarioIdRegistrado",
+      "value": ""
+    },
+    {
+      "key": "inicioTest",
+      "value": ""
+    },
+    {
+      "key": "baselineCount",
+      "value": ""
+    },
+    {
+      "key": "usuarioIdReset",
+      "value": ""
+    }
+  ]
+}

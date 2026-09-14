@@ -9,6 +9,9 @@ test-results/
 playwright-report/
 blob-report/
 
+# Resultados de tests Cucumber/BDD
+results/
+
 # Resultados de Newman
 newman/
 

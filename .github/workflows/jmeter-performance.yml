@@ -70,7 +70,8 @@ jobs:
             -t tests/performance/plans/Curso_Automatizacion_CIT_v1.ci.jmx \
             -l "${RESULTS_DIR}/R_CURSO_CIT.jtl" \
             -e -o "${RESULTS_DIR}/dashboard" \
-            -JcsvPath=tests/performance/data/datos_dinamicos.csv
+            -JcsvPath=tests/performance/data/datos_dinamicos.csv \
+            -JrunId="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
       - name: Configurar Python (captura de monitoreo)
         if: ${{ inputs.monitoring_dashboard_url != '' }}
@@ -92,7 +93,7 @@ jobs:
             --url "${{ inputs.monitoring_dashboard_url }}" \
             --output "${RESULTS_DIR}/evidence/EVIDENCIA_MONITOREO.png" \
             --wait-seconds 8 \
-            --ready-timeout-seconds 180
+            --timeout-seconds 180
 
       - name: Generar informe PDF
         if: always()
@@ -103,6 +104,9 @@ jobs:
               --evidence-label "Dashboard de monitoreo" \
               --evidence-url "${{ inputs.monitoring_dashboard_url }}")
           fi
+          # El generador sale con codigo 1 cuando el veredicto es FAIL. Aca solo
+          # interesa producir el PDF; el gate del SLA es "Evaluar umbrales".
+          set +e
           npx -y aiquaa-performance-mcp-server --report \
             "${RESULTS_DIR}/R_CURSO_CIT.jtl" \
             tests/performance/thresholds/thresholds.json \
@@ -116,6 +120,12 @@ jobs:
             --api-version "${{ github.sha }}" \
             --repo-url "${{ github.server_url }}/${{ github.repository }}" \
             "${EVIDENCE_ARGS[@]}"
+          status=$?
+          set -e
+          if [ ! -f "${RESULTS_DIR}/INFORME_PERF_CURSO_CIT.pdf" ]; then
+            echo "::error::No se genero el informe PDF (exit ${status})."
+            exit "${status}"
+          fi
 
       - name: Evaluar umbrales (SLA)
         # Corre despues del informe para que el PDF se publique aun si el SLA falla.

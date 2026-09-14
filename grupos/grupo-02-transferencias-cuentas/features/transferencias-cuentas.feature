@@ -42,13 +42,13 @@ Feature: Transferencias entre Cuentas
     And el saldo de la cuenta destino debe aumentar en 500000 Gs
     And se debe generar un comprobante de transferencia
 
-  Scenario: Rechazar una transferencia hacia una cuenta bloqueada
+  Scenario: Rechazar una transferencia hacia una cuenta inactiva
     Given la cuenta destino pertenece al mismo banco
-    And la cuenta destino se encuentra bloqueada
+    And la cuenta destino se encuentra inactiva
     And la cuenta origen dispone de un saldo de 10000000 Gs
     When el cliente realiza una transferencia de 5000000 Gs desde la cuenta origen hacia la cuenta destino
     Then la transferencia debe ser rechazada
-    And se debe informar que la cuenta destino se encuentra bloqueada
+    And se debe informar que la cuenta destino se encuentra inactiva
     And el saldo de la cuenta origen no debe ser modificado
     And el saldo de la cuenta destino no debe ser modificado
     And no se debe generar un comprobante de transferencia

@@ -1,0 +1,108 @@
+{
+  "info": {
+    "_postman_id": "bd0a7fff-0eca-45be-bac8-f31cc65c3b71",
+    "name": "Grupo_01_Autenticacion_y_Acceso_David_Cristaldo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "40344229"
+  },
+  "item": [
+    {
+      "name": "CP 01- Solicitar recuperación con correo registrado",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200', function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test('Registra evento password_reset_solicitado', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.tipo_evento).to.eql('password_reset_solicitado');\r\n    pm.expect(jsonData.data.exitoso).to.eql(true);\r\n});\r\n\r\npm.test('El evento pertenece al usuario correcto', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.usuario_id).to.eql('1');\r\n});\r\n\r\npm.test('Response time is less than 3000ms', function () {\r\n    pm.expect(pm.response.responseTime).to.be.below(3000);\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"{{emailRegistrado}}\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "forgot-password"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "CP 02 - Confirmar restablecimiento de contraseña",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code es 200', function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test('Registra evento password_reset_completado', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.tipo_evento).to.eql('password_reset_completado');\r\n    pm.expect(jsonData.data.exitoso).to.eql(true);\r\n});\r\n\r\npm.test('El evento pertenece al usuario correcto', function () {\r\n    var jsonData = pm.response.json();\r\n    pm.expect(jsonData.data.usuario_id).to.eql('1');\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"usuarioId\": 1 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "reset-password"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Grupo_01_Autenticacion_y_Acceso_con validación en BD_David_Cristaldo" tests="2" time="0.562">
+  <testsuite name="CP 01- Solicitar recuperación con correo registrado" id="f4a5dc62-2812-48f0-ba26-21abbf765f84" timestamp="2026-09-06T17:39:14.629Z" tests="3" failures="0" errors="0" time="0.274">
+    <testcase name="Status code es 200" time="0.274" classname="Cp01SolicitarRecuperacionConCorreoRegistrado"/>
+    <testcase name="La respuesta confirma tipo_evento password_reset_solicitado" time="0.274" classname="Cp01SolicitarRecuperacionConCorreoRegistrado"/>
+    <testcase name="El evento password_reset_solicitado quedó persistido en BD" time="0.274" classname="Cp01SolicitarRecuperacionConCorreoRegistrado"/>
+  </testsuite>
+  <testsuite name="CP 02 - Confirmar restablecimiento de contraseña" id="6bc97da7-58a8-4f22-a649-dbb9c74730aa" timestamp="2026-09-06T17:39:14.629Z" tests="3" failures="0" errors="0" time="0.288">
+    <testcase name="Status code es 200" time="0.288" classname="Cp02ConfirmarRestablecimientoDeContrasena"/>
+    <testcase name="La respuesta confirma tipo_evento password_reset_completado" time="0.288" classname="Cp02ConfirmarRestablecimientoDeContrasena"/>
+    <testcase name="El evento password_reset_completado quedó persistido en BD" time="0.288" classname="Cp02ConfirmarRestablecimientoDeContrasena"/>
+  </testsuite>
+</testsuites>

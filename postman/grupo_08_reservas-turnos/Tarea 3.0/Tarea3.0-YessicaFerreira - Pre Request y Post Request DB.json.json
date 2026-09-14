@@ -1,0 +1,554 @@
+{
+  "info": {
+    "_postman_id": "f271813b-ba41-4b6b-91e7-2f9d28a1f870",
+    "name": "Tarea3.0-YessicaFerreira - Pre Request y Post Request DB",
+    "description": "Automatización de los casos de Tarea2-YessicaFerreira para Tarea 3.0. Incluye Pre Request y Post Request con validación mediante /api/v1/sql/select y /api/v1/sql/update.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "47241162",
+    "_collection_link": "https://go.postman.co/collection/47241162-f271813b-ba41-4b6b-91e7-2f9d28a1f870?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "CP001 - Crear y confirmar reserva",
+      "item": [
+        {
+          "name": "01 - CP001 - Crear reserva (pre + post DB)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Tarea 3.0 - Pre Request: obtener datos dinámicos desde la BD mediante la API SQL.",
+                  "const baseUrl = pm.environment.get('baseUrl');",
+                  "const apiKey = pm.environment.get('apiKey');",
+                  "",
+                  "pm.test('PreRequest: baseUrl configurado', function () {",
+                  "    pm.expect(baseUrl, 'baseUrl').to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "if (apiKey) {",
+                  "    pm.sendRequest({",
+                  "        url: baseUrl + '/api/v1/sql/select',",
+                  "        method: 'POST',",
+                  "        header: {",
+                  "            'Content-Type': 'application/json',",
+                  "            'x-api-key': apiKey",
+                  "        },",
+                  "        body: {",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify({",
+                  "                sql: 'SELECT id, usuario_id, servicio, fecha_hora, estado FROM reservas ORDER BY id DESC LIMIT 1',",
+                  "                params: []",
+                  "            })",
+                  "        }",
+                  "    }, function (err, res) {",
+                  "        if (!err && res && res.code >= 200 && res.code < 300) {",
+                  "            try {",
+                  "                const body = res.json();",
+                  "                const rows = Array.isArray(body.data) ? body.data : [];",
+                  "                if (rows.length > 0 && rows[0].id !== undefined) {",
+                  "                    pm.environment.set('lastDbReservationId', String(rows[0].id));",
+                  "                    pm.environment.set('lastDbEstado', String(rows[0].estado || ''));",
+                  "                }",
+                  "            } catch (e) {",
+                  "                console.warn('No fue posible interpretar el SELECT previo:', e.message);",
+                  "            }",
+                  "        }",
+                  "    });",
+                  "} else {",
+                  "    console.warn('apiKey no está configurada; el request principal puede fallar por autenticación.');",
+                  "}",
+                  "// Genera datos de prueba únicos para evitar colisiones entre ejecuciones.",
+                  "const now = new Date();",
+                  "const uniqueSuffix = now.getTime();",
+                  "pm.environment.set('testService', 'Corte de Cabello');",
+                  "pm.environment.set('testNotes', 'Yessica Tarea3 ' + uniqueSuffix);",
+                  "",
+                  "// Fecha ISO futura y estable para la prueba.",
+                  "// Se usa un horario 30 días adelante para reducir la posibilidad de colisión.",
+                  "const future = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);",
+                  "future.setHours(10, 0, 0, 0);",
+                  "pm.environment.set('testDateTime', future.toISOString());",
+                  "pm.environment.set('testUserId', pm.environment.get('usuarioId') || '19');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{testUserId}}\",\n  \"servicio\": \"{{testService}}\",\n  \"fechaHora\": \"{{testDateTime}}\",\n  \"notas\": \"{{testNotes}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 - CP001 - Consultar reserva creada y validar BD",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Pre Request: confirma que existe un ID dinámico guardado por el request anterior.\npm.expect(pm.environment.get('reservationId'), 'reservationId').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/{{reservationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "{{reservationId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03 - CP001 - Confirmar reserva mediante endpoint",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.environment.get('reservationId'), 'reservationId').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/{{reservationId}}/confirmar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "{{reservationId}}",
+                "confirmar"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CP002 - Horario ocupado",
+      "item": [
+        {
+          "name": "01 - CP002 - Intentar reservar horario ocupado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Pre Request: reutiliza exactamente el horario creado en CP001 y valida por SQL que está ocupado.\nconst baseUrl=pm.environment.get('baseUrl'), apiKey=pm.environment.get('apiKey'), dt=pm.environment.get('testDateTime');\npm.expect(dt, 'testDateTime').to.be.a('string').and.not.empty;\npm.sendRequest({url:baseUrl+'/api/v1/sql/select',method:'POST',header:{'Content-Type':'application/json','x-api-key':apiKey},body:{mode:'raw',raw:JSON.stringify({sql:'SELECT id, estado FROM reservas WHERE fecha_hora = $1 LIMIT 1',params:[dt]})}},(err,res)=>{\n    if(!err && res.code>=200 && res.code<300 && res.json().data.length){ pm.environment.set('occupiedReservationId',String(res.json().data[0].id)); }\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{testUserId}}\",\n  \"servicio\": \"{{testService}}\",\n  \"fechaHora\": \"{{testDateTime}}\",\n  \"notas\": \"Yessica CP002 horario ocupado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 - CP002 - Validar por SQL que existe una reserva para el horario",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.environment.get('testDateTime'), 'testDateTime').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT id, usuario_id, servicio, fecha_hora, estado FROM reservas WHERE fecha_hora = $1\",\n  \"params\": [\n    \"{{testDateTime}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03 - CP002 - Confirmar la reserva ocupante",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.environment.get('occupiedReservationId'), 'occupiedReservationId').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/{{occupiedReservationId}}/confirmar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "{{occupiedReservationId}}",
+                "confirmar"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Validaciones complementarias SQL / CRUD",
+      "item": [
+        {
+          "name": "01 - Listado de reservas + validación DB",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Pre Request: consulta rápida de la BD antes del GET principal.\nconst baseUrl=pm.environment.get('baseUrl'), apiKey=pm.environment.get('apiKey');\npm.sendRequest({url:baseUrl+'/api/v1/sql/select',method:'POST',header:{'Content-Type':'application/json','x-api-key':apiKey},body:{mode:'raw',raw:JSON.stringify({sql:'SELECT COUNT(*) AS total FROM reservas',params:[]})}},(err,res)=>{\n if(!err && res.code>=200 && res.code<300){ try{ pm.environment.set('dbReservationCount',String(res.json().data[0].total)); }catch(e){} }\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 - Reservas de un usuario + validación DB",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.environment.get('testUserId'), 'testUserId').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"SELECT servicio, fecha_hora, estado FROM reservas WHERE usuario_id = $1\",\n  \"params\": [\n    \"{{testUserId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03 - Confirmar mediante SQL UPDATE + validar por SELECT",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.environment.get('reservationId'), 'reservationId').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sql\": \"UPDATE reservas SET estado = $1 WHERE id = $2\",\n  \"params\": [\n    \"confirmada\",\n    \"{{reservationId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "04 - Obtener reserva por ID + validación DB",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.environment.get('reservationId'), 'reservationId').to.be.a('string').and.not.empty;"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reservas/{{reservationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservas",
+                "{{reservationId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "reservationId",
+      "value": ""
+    },
+    {
+      "key": "occupiedReservationId",
+      "value": ""
+    },
+    {
+      "key": "lastDbReservationId",
+      "value": ""
+    },
+    {
+      "key": "lastDbEstado",
+      "value": ""
+    },
+    {
+      "key": "dbReservationCount",
+      "value": ""
+    }
+  ]
+}
