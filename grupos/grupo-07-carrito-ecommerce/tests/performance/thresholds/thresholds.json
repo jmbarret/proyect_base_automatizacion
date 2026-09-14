@@ -1,0 +1,16 @@
+{
+  "global": {
+    "maxErrorRate": 5,
+    "p95Ms": 2000
+  },
+  "operations": {
+    "POST /api/v1/ordenes": {
+      "maxErrorRate": 5,
+      "p95Ms": 2000
+    },
+    "GET /api/v1/ordenes/{id}": {
+      "maxErrorRate": 5,
+      "p95Ms": 2000
+    }
+  }
+}
