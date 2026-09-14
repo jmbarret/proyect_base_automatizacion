@@ -1,0 +1,1831 @@
+{
+  "info": {
+    "name": "Grupo03 - Pago de Servicios - Stefania (Tigo)",
+    "description": "Coleccion generada con skill postman-newman desde grupos/grupo-03-pagos-servicios/features/pago-de-servicios_Stefania.feature (32 escenarios, solo proveedor Tigo, RF-G3-01 a RF-G3-06 + transversales). Referencia: Grupo03-Pago_de_Servicios-Juan.postman_collection.json (derivacion sistematica ANDE->Tigo). Trazabilidad BDD->API en la descripcion de cada request. Pre-requests resuelven IDs dinamicos via POST /api/v1/sql/select y crean facturas frescas autocontenidas (re-ejecutable sin agotar el seed). Verificacion BD post-respuesta en casos clave. Sin URLs hardcodeadas: todo {{baseUrl}}/{{apiKey}}. NOTA: la API no filtra por proveedor (RF-G3-01 solo usuarioId+estado); las aserciones Tigo se hacen lado-cliente en los tests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "RF-G3-01 Listar facturas",
+      "description": "BDD @RF-G3-01 @listar — GET /api/v1/facturas (4 escenarios).",
+      "item": [
+        {
+          "name": "Listar Tigo pendientes estado=pendiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Filtro servidor: todas estado pendiente\", function () { var d = pm.response.json().data; pm.expect(d).to.be.an(\"array\"); d.forEach(function (f) { pm.expect(f.estado).to.eql(\"pendiente\"); }); });",
+                  "var STEFANIA_D = pm.response.json().data;",
+                  "var STEFANIA_Tigo = STEFANIA_D.filter(function (f) { return f.proveedor === \"Tigo\"; });",
+                  "console.log(\"Total pendientes: \" + STEFANIA_D.length + \" | Solo Tigo: \" + STEFANIA_Tigo.length);",
+                  "pm.test(\"Hay facturas Tigo en el seed\", function () { pm.expect(STEFANIA_Tigo.length).to.be.above(0); });",
+                  "pm.test(\"Set de trabajo solo Tigo: todas proveedor Tigo y estado pendiente\", function () { STEFANIA_Tigo.forEach(function (f) { pm.expect(f.proveedor).to.eql(\"Tigo\"); pm.expect(f.estado).to.eql(\"pendiente\"); }); });",
+                  "pm.test(\"Max 100 registros\", function () { pm.expect(pm.response.json().data.length).to.be.at.most(100); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?estado=pendiente",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "pendiente"
+                }
+              ]
+            },
+            "description": "BDD: Listar filtrando estado=pendiente. La API no acepta filtro proveedor: el test filtra el subconjunto Tigo lado-cliente y TODAS las aserciones de proveedor+estado corren sobre ese set (ver console.log con conteos). RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Tigo por usuario y estado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Filtro servidor: cumplen usuario + estado (Y logico)\", function () { var d = pm.response.json().data; var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")); d.forEach(function (f) { pm.expect(Number(f.usuario_id)).to.eql(uid); pm.expect(f.estado).to.eql(\"pagada\"); }); });",
+                  "var STEFANIA_D2 = pm.response.json().data;",
+                  "var STEFANIA_Tigo2 = STEFANIA_D2.filter(function (f) { return f.proveedor === \"Tigo\"; });",
+                  "console.log(\"Total usuario+pagada: \" + STEFANIA_D2.length + \" | Solo Tigo: \" + STEFANIA_Tigo2.length);",
+                  "pm.test(\"Hay facturas Tigo en el set\", function () { pm.expect(STEFANIA_Tigo2.length).to.be.above(0); });",
+                  "pm.test(\"Set de trabajo solo Tigo: proveedor + usuario + estado\", function () { var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")); STEFANIA_Tigo2.forEach(function (f) { pm.expect(f.proveedor).to.eql(\"Tigo\"); pm.expect(Number(f.usuario_id)).to.eql(uid); pm.expect(f.estado).to.eql(\"pagada\"); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?usuarioId={{UsuarioID}}&estado=pagada",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{UsuarioID}}"
+                },
+                {
+                  "key": "estado",
+                  "value": "pagada"
+                }
+              ]
+            },
+            "description": "BDD: Combinar usuarioId y estado con Y logico. El test filtra el subconjunto Tigo lado-cliente (la API no filtra por proveedor) y aserta proveedor+usuario+estado sobre ese set. RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar estado invalido anulada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?estado=anulada",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "anulada"
+                }
+              ]
+            },
+            "description": "BDD: estado=anulada responde 400 VALIDATION_ERROR. RF-G3-01."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar usuario sin facturas",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT COALESCE(MAX(usuario_id),0)+1000 AS x FROM facturas\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_UID_EMPTY\", (!e && r.code === 200) ? r.json().data[0].x : 999999); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 con data vacia\", function () { pm.response.to.have.status(200); pm.expect(pm.response.json().data).to.be.an(\"array\").that.is.empty; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?usuarioId={{STEFANIA_UID_EMPTY}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{STEFANIA_UID_EMPTY}}"
+                }
+              ]
+            },
+            "description": "BDD: Titular sin facturas devuelve 200 con data vacia. ID garantizado inexistente via SQL. RF-G3-01."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RF-G3-02 Consultar factura",
+      "description": "BDD @RF-G3-02 @consultar — GET /api/v1/facturas/{id} (3 escenarios).",
+      "item": [
+        {
+          "name": "Consultar Tigo existente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "pm.sendRequest(utils.sql(\"SELECT id FROM facturas WHERE proveedor=$1 AND activo=true AND usuario_id=$2 ORDER BY id LIMIT 1\", [\"Tigo\", uid]), function (e, r) { pm.collectionVariables.set(\"STEFANIA_PID\", (!e && r.code === 200 && r.json().data.length > 0) ? r.json().data[0].id : 0); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Proveedor Tigo + campos completos\", function () { var f = pm.response.json().data; pm.expect(f.proveedor).to.eql(\"Tigo\"); [\"numero_factura\", \"monto\", \"fecha_vencimiento\", \"estado\", \"created_at\"].forEach(function (k) { pm.expect(f).to.have.property(k); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}"
+              ]
+            },
+            "description": "BDD: Consultar factura Tigo existente, ID resuelto via SQL. RF-G3-02."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Tigo inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT COALESCE(MAX(id),0)+1000 AS x FROM facturas\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_INEX\", (!e && r.code === 200) ? r.json().data[0].x : 999999); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });",
+                  "pm.test(\"Mensaje Factura no encontrada.\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Factura no encontrada.\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_INEX}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_INEX}}"
+              ]
+            },
+            "description": "BDD: Consultar ID inexistente (MAX+1000) responde 404 NOT_FOUND. RF-G3-02."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Tigo despues de pagarla",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 60000, fechaVencimiento: \"2026-12-31\" }), function (e1, r1) { if (!e1 && r1.code === 201) { var id = r1.json().data.id; pm.collectionVariables.set(\"STEFANIA_PID\", id); pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas/\" + id + \"/pagar\", { metodoPago: \"tarjeta\" }), function () {}); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Estado pagada + proveedor Tigo\", function () { var f = pm.response.json().data; pm.expect(f.estado).to.eql(\"pagada\"); pm.expect(f.proveedor).to.eql(\"Tigo\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}"
+              ]
+            },
+            "description": "BDD: Crear+pagar en pre-request, luego GET verifica estado pagada. RF-G3-02 + RF-G3-03."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RF-G3-03 Pagar factura",
+      "description": "BDD @RF-G3-03 @pagar — POST /api/v1/facturas/{id}/pagar (11 escenarios). Facturas frescas autocontenidas.",
+      "item": [
+        {
+          "name": "Pagar Tigo con tarjeta",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Factura pagada + pago procesado\", function () { var j = pm.response.json().data; pm.expect(j.factura.estado).to.eql(\"pagada\"); pm.expect(j.pago.estado).to.eql(\"procesado\"); });",
+                  "pm.test(\"Monto copiado + mismo titular + metodo tarjeta\", function () { var j = pm.response.json().data; pm.expect(j.pago.monto).to.eql(j.factura.monto); pm.expect(Number(j.pago.usuario_id)).to.eql(Number(j.factura.usuario_id)); pm.expect(j.pago.metodo_pago).to.eql(\"tarjeta\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Pago exitoso Tigo pendiente con tarjeta. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo con cuenta",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Factura pagada + pago procesado\", function () { var j = pm.response.json().data; pm.expect(j.factura.estado).to.eql(\"pagada\"); pm.expect(j.pago.estado).to.eql(\"procesado\"); });",
+                  "pm.test(\"Metodo cuenta\", function () { pm.expect(pm.response.json().data.pago.metodo_pago).to.eql(\"cuenta\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"cuenta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Pago exitoso Tigo pendiente con cuenta. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo con efectivo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Factura pagada + pago procesado\", function () { var j = pm.response.json().data; pm.expect(j.factura.estado).to.eql(\"pagada\"); pm.expect(j.pago.estado).to.eql(\"procesado\"); });",
+                  "pm.test(\"Metodo efectivo\", function () { pm.expect(pm.response.json().data.pago.metodo_pago).to.eql(\"efectivo\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"efectivo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Pago exitoso Tigo pendiente con efectivo. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo vencida sin recargos",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "pm.sendRequest(utils.sql(\"SELECT id FROM facturas WHERE proveedor=$1 AND estado='vencida' AND activo=true AND usuario_id=$2 LIMIT 1\", [\"Tigo\", uid]), function (e, r) { if (!e && r.code === 200 && r.json().data.length > 0) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data[0].id); } else { var num = \"Tigo-STEFANIA-\" + Date.now(); pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 55000, fechaVencimiento: \"2020-01-01\" }), function (e2, r2) { pm.collectionVariables.set(\"STEFANIA_PID\", (!e2 && r2.code === 201) ? r2.json().data.id : 0); }); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Factura pagada + pago procesado\", function () { var j = pm.response.json().data; pm.expect(j.factura.estado).to.eql(\"pagada\"); pm.expect(j.pago.estado).to.eql(\"procesado\"); });",
+                  "pm.test(\"Monto original sin recargos\", function () { var j = pm.response.json().data; pm.expect(j.pago.monto).to.eql(j.factura.monto); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Vencida Tigo se paga por importe original (fallback: crea con fecha pasada si no hay vencidas). RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT COALESCE(MAX(id),0)+1000 AS x FROM facturas\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_INEX\", (!e && r.code === 200) ? r.json().data[0].x : 999999); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });",
+                  "pm.test(\"Mensaje ya pagada o no encontrada\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Factura no encontrada o ya pagada.\"); });",
+                  "pm.sendRequest(utils.sql(\"SELECT COUNT(*) AS n FROM pagos WHERE factura_id=$1\", [Number(pm.collectionVariables.get(\"STEFANIA_INEX\"))]), function (e, r) { pm.test(\"Sin filas en pagos (verif BD)\", function () { pm.expect(Number(r.json().data[0].n)).to.eql(0); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_INEX}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_INEX}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Pagar ID inexistente responde 404 y no inserta en pagos (verificado en BD). RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo ya pagada doble pago",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 60000, fechaVencimiento: \"2026-12-31\" }), function (e1, r1) { if (!e1 && r1.code === 201) { var id = r1.json().data.id; pm.collectionVariables.set(\"STEFANIA_PID\", id); pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas/\" + id + \"/pagar\", { metodoPago: \"tarjeta\" }), function () {}); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });",
+                  "pm.test(\"Mensaje ya pagada\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Factura no encontrada o ya pagada.\"); });",
+                  "pm.sendRequest(utils.sql(\"SELECT COUNT(*) AS n FROM pagos WHERE factura_id=$1\", [Number(pm.collectionVariables.get(\"STEFANIA_PID\"))]), function (e, r) { pm.test(\"Un solo pago registrado (verif BD)\", function () { pm.expect(Number(r.json().data[0].n)).to.eql(1); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Segundo pago responde 404 y no duplica filas en pagos (verificado en BD). RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo metodo invalido cripto",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });",
+                  "pm.sendRequest(utils.sql(\"SELECT estado FROM facturas WHERE id=$1\", [Number(pm.collectionVariables.get(\"STEFANIA_PID\"))]), function (e, r) { pm.test(\"Factura sigue pendiente (verif BD)\", function () { pm.expect(r.json().data[0].estado).to.eql(\"pendiente\"); }); });",
+                  "pm.sendRequest(utils.sql(\"SELECT COUNT(*) AS n FROM pagos WHERE factura_id=$1\", [Number(pm.collectionVariables.get(\"STEFANIA_PID\"))]), function (e, r) { pm.test(\"Sin filas en pagos (verif BD)\", function () { pm.expect(Number(r.json().data[0].n)).to.eql(0); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"cripto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: metodoPago=cripto responde 400 y conserva pendiente sin insertar pagos (verificado en BD). RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo sin metodoPago",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Body sin metodoPago responde 400 VALIDATION_ERROR. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo ID no numerico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/abc/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "abc",
+                "pagar"
+              ]
+            },
+            "description": "BDD: ID abc en ruta responde 400 VALIDATION_ERROR. RF-G3-03."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo mismo dia vencimiento",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "pm.sendRequest(utils.sql(\"SELECT id FROM facturas WHERE proveedor=$1 AND estado IN ('pendiente','vencida') AND activo=true AND fecha_vencimiento=CURRENT_DATE AND usuario_id=$2 LIMIT 1\", [\"Tigo\", uid]), function (e, r) { if (!e && r.code === 200 && r.json().data.length > 0) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data[0].id); } else { var hoy = new Date().toISOString().slice(0, 10); var num = \"Tigo-STEFANIA-\" + Date.now(); pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 65000, fechaVencimiento: hoy }), function (e2, r2) { pm.collectionVariables.set(\"STEFANIA_PID\", (!e2 && r2.code === 201) ? r2.json().data.id : 0); }); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Factura pagada + pago procesado\", function () { var j = pm.response.json().data; pm.expect(j.factura.estado).to.eql(\"pagada\"); pm.expect(j.pago.estado).to.eql(\"procesado\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Factura Tigo con vencimiento hoy se paga OK (fallback: crea con fecha de hoy). RF-G3-03 edge."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar Tigo concurrente segundo pierde",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Primer pago 200\", function () { pm.response.to.have.status(200); pm.expect(pm.response.json().data.factura.estado).to.eql(\"pagada\"); });",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas/\" + pm.collectionVariables.get(\"STEFANIA_PID\") + \"/pagar\", { metodoPago: \"tarjeta\" }), function (e, r) { pm.test(\"Segundo pago 404 ya pagada\", function () { pm.expect(r.code).to.eql(404); pm.expect(r.json().error.message).to.eql(\"Factura no encontrada o ya pagada.\"); }); });",
+                  "pm.sendRequest(utils.sql(\"SELECT COUNT(*) AS n FROM pagos WHERE factura_id=$1\", [Number(pm.collectionVariables.get(\"STEFANIA_PID\"))]), function (e, r) { pm.test(\"Un solo pago registrado (verif BD)\", function () { pm.expect(Number(r.json().data[0].n)).to.eql(1); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metodoPago\": \"tarjeta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}/pagar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}",
+                "pagar"
+              ]
+            },
+            "description": "BDD: Aproximacion secuencial de concurrencia — primero gana 200, segundo pierde 404, una sola fila en pagos. RF-G3-03 edge."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RF-G3-04 Crear factura",
+      "description": "BDD @RF-G3-04 @crear — POST /api/v1/facturas (5 escenarios).",
+      "item": [
+        {
+          "name": "Crear Tigo valida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Estado pendiente + proveedor Tigo\", function () { var f = pm.response.json().data; pm.expect(f.estado).to.eql(\"pendiente\"); pm.expect(f.proveedor).to.eql(\"Tigo\"); pm.collectionVariables.set(\"STEFANIA_FRESH\", f.id); });",
+                  "pm.sendRequest({ url: utils.base() + \"/api/v1/facturas?usuarioId=\" + pm.collectionVariables.get(\"STEFANIA_UID\"), method: \"GET\", header: { \"x-api-key\": utils.key() } }, function (e, r) { pm.test(\"Aparece en listado del titular\", function () { var ids = r.json().data.map(function (f) { return Number(f.id); }); pm.expect(ids).to.include(Number(pm.collectionVariables.get(\"STEFANIA_FRESH\"))); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{UsuarioID}},\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"Tigo-STEFANIA-{{$timestamp}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: Crear Tigo valida responde 201 pendiente (numero unico por timestamp) y aparece en listado. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Tigo duplicada 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT numero_factura AS x FROM facturas WHERE activo=true LIMIT 1\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_NUM\", (!e && r.code === 200 && r.json().data.length > 0) ? r.json().data[0].x : \"Tigo-NOEXISTE\"); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Codigo CONFLICT\", function () { pm.expect(pm.response.json().error.code).to.eql(\"CONFLICT\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{UsuarioID}},\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"{{STEFANIA_NUM}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: numeroFactura existente responde 409 CONFLICT (numero resuelto via SQL). RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear proveedor invalido Claro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{UsuarioID}},\n  \"proveedor\": \"Claro\",\n  \"numeroFactura\": \"Tigo-STEFANIA-{{$timestamp}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: proveedor=Claro responde 400 VALIDATION_ERROR. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Tigo usuario inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT COALESCE(MAX(id),0)+1000 AS x FROM usuarios\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_UID_INEX\", (!e && r.code === 200) ? r.json().data[0].x : 999999); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Codigo VALIDATION_ERROR\", function () { pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{STEFANIA_UID_INEX}},\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"Tigo-STEFANIA-{{$timestamp}}\",\n  \"monto\": 50000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: usuarioId inexistente (MAX+1000, sin comillas para enviar numero) responde 400 por FK. RF-G3-04."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Tigo fecha pasada 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Estado pendiente aunque vencida\", function () { var f = pm.response.json().data; pm.expect(f.estado).to.eql(\"pendiente\"); pm.expect(f.fecha_vencimiento).to.contain(\"2020-01-01\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{UsuarioID}},\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"Tigo-STEFANIA-{{$timestamp}}\",\n  \"monto\": 45000,\n  \"fechaVencimiento\": \"2020-01-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: fechaVencimiento pasada se acepta 201 con estado pendiente. RF-G3-04 edge."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RF-G3-05 Reemplazar factura",
+      "description": "BDD @RF-G3-05 @reemplazar — PUT /api/v1/facturas/{id} (3 escenarios).",
+      "item": [
+        {
+          "name": "Reemplazar Tigo pendiente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Monto 75000 + estado pendiente + Tigo\", function () { var f = pm.response.json().data; pm.expect(Number(f.monto)).to.eql(75000); pm.expect(f.estado).to.eql(\"pendiente\"); pm.expect(f.proveedor).to.eql(\"Tigo\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"Tigo-STEFANIA-R-{{$timestamp}}\",\n  \"monto\": 75000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}"
+              ]
+            },
+            "description": "BDD: Reemplazo de Tigo pendiente actualiza monto sin tocar estado. RF-G3-05."
+          },
+          "response": []
+        },
+        {
+          "name": "Reemplazar Tigo duplicado 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var n1 = \"Tigo-STEFANIA-A\" + Date.now();",
+                  "var n2 = \"Tigo-STEFANIA-B\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: n1, monto: 10000, fechaVencimiento: \"2026-12-31\" }), function (e1, r1) { pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: n2, monto: 20000, fechaVencimiento: \"2026-12-31\" }), function (e2, r2) { if (!e1 && r1.code === 201 && !e2 && r2.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r1.json().data.id); pm.collectionVariables.set(\"STEFANIA_NUM_OTHER\", r2.json().data.numero_factura); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } }); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Codigo CONFLICT\", function () { pm.expect(pm.response.json().error.code).to.eql(\"CONFLICT\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"{{STEFANIA_NUM_OTHER}}\",\n  \"monto\": 75000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}"
+              ]
+            },
+            "description": "BDD: Reemplazar con numero de otra factura responde 409 (dos frescas creadas en pre-request). RF-G3-05."
+          },
+          "response": []
+        },
+        {
+          "name": "Reemplazar Tigo inexistente 404",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT COALESCE(MAX(id),0)+1000 AS x FROM facturas\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_INEX\", (!e && r.code === 200) ? r.json().data[0].x : 999999); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proveedor\": \"Tigo\",\n  \"numeroFactura\": \"Tigo-STEFANIA-{{$timestamp}}\",\n  \"monto\": 75000,\n  \"fechaVencimiento\": \"2026-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_INEX}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_INEX}}"
+              ]
+            },
+            "description": "BDD: Reemplazar ID inexistente responde 404 NOT_FOUND. RF-G3-05."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RF-G3-06 Dar de baja",
+      "description": "BDD @RF-G3-06 @baja — DELETE /api/v1/facturas/{id} (3 escenarios, baja logica 204).",
+      "item": [
+        {
+          "name": "Baja Tigo vigente 204",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 50000, fechaVencimiento: \"2026-12-31\" }), function (e, r) { if (!e && r.code === 201) { pm.collectionVariables.set(\"STEFANIA_PID\", r.json().data.id); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 sin cuerpo\", function () { pm.response.to.have.status(204); });",
+                  "pm.sendRequest({ url: utils.base() + \"/api/v1/facturas/\" + pm.collectionVariables.get(\"STEFANIA_PID\"), method: \"GET\", header: { \"x-api-key\": utils.key() } }, function (e, r) { pm.test(\"GET posterior 404\", function () { pm.expect(r.code).to.eql(404); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}"
+              ]
+            },
+            "description": "BDD: Baja de Tigo vigente 204; GET posterior 404 (baja logica). RF-G3-06."
+          },
+          "response": []
+        },
+        {
+          "name": "Baja Tigo ya pagada 204",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uid = Number(pm.collectionVariables.get(\"STEFANIA_UID\")) || 1;",
+                  "var num = \"Tigo-STEFANIA-\" + Date.now();",
+                  "pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas\", { usuarioId: uid, proveedor: \"Tigo\", numeroFactura: num, monto: 60000, fechaVencimiento: \"2026-12-31\" }), function (e1, r1) { if (!e1 && r1.code === 201) { var id = r1.json().data.id; pm.collectionVariables.set(\"STEFANIA_PID\", id); pm.sendRequest(utils.api(\"POST\", \"/api/v1/facturas/\" + id + \"/pagar\", { metodoPago: \"tarjeta\" }), function () {}); } else { pm.collectionVariables.set(\"STEFANIA_PID\", 0); } });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 aunque pagada\", function () { pm.response.to.have.status(204); });",
+                  "pm.sendRequest(utils.sql(\"SELECT COUNT(*) AS n FROM pagos WHERE factura_id=$1\", [Number(pm.collectionVariables.get(\"STEFANIA_PID\"))]), function (e, r) { pm.test(\"Pagos conservados (verif BD)\", function () { pm.expect(Number(r.json().data[0].n)).to.be.above(0); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_PID}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_PID}}"
+              ]
+            },
+            "description": "BDD: Baja de Tigo pagada aceptada 204 sin borrar pagos (verificado en BD). RF-G3-06."
+          },
+          "response": []
+        },
+        {
+          "name": "Baja Tigo inexistente 404",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest(utils.sql(\"SELECT COALESCE(MAX(id),0)+1000 AS x FROM facturas\"), function (e, r) { pm.collectionVariables.set(\"STEFANIA_INEX\", (!e && r.code === 200) ? r.json().data[0].x : 999999); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Codigo NOT_FOUND\", function () { pm.expect(pm.response.json().error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas/{{STEFANIA_INEX}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas",
+                "{{STEFANIA_INEX}}"
+              ]
+            },
+            "description": "BDD: Baja de ID inexistente responde 404 NOT_FOUND. RF-G3-06."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transversales API",
+      "description": "BDD @transversal — auth y rate limit (3 escenarios).",
+      "item": [
+        {
+          "name": "Sin API key 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Mensaje generico\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Invalid or inactive API key.\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: Sin header x-api-key responde 401 UNAUTHORIZED."
+          },
+          "response": []
+        },
+        {
+          "name": "API key invalida 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Mensaje generico\", function () { pm.expect(pm.response.json().error.message).to.eql(\"Invalid or inactive API key.\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "INVALID_KEY_STEFANIA"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ]
+            },
+            "description": "BDD: x-api-key invalida responde 401 UNAUTHORIZED."
+          },
+          "response": []
+        },
+        {
+          "name": "Rate limit 429 manual",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 (429 solo con caudal real)\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 429]); });",
+                  "if (pm.response.code === 429) { pm.test(\"Headers de rate limit presentes\", function () { pm.response.to.have.header(\"Retry-After\"); pm.response.to.have.header(\"X-RateLimit-Limit\"); pm.response.to.have.header(\"X-RateLimit-Remaining\"); }); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/facturas?estado=pendiente",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "facturas"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "pendiente"
+                }
+              ]
+            },
+            "description": "BDD: El 429 real requiere 31 requests/min (manual, no se fuerza en CI para no tripear el limite). Este request valida 200 normal y asserts de headers si hay 429."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (typeof utils === \"undefined\") {",
+          "  utils = {",
+          "    base: function () { return pm.collectionVariables.get(\"baseUrl\") || pm.environment.get(\"baseUrl\"); },",
+          "    key: function () { return pm.collectionVariables.get(\"apiKey\") || pm.environment.get(\"apiKey\"); },",
+          "    api: function (method, path, body) { return { url: this.base() + path, method: method, header: { \"Content-Type\": \"application/json\", \"x-api-key\": this.key() }, body: { mode: \"raw\", raw: body ? JSON.stringify(body) : \"\" } }; },",
+          "    sql: function (sql, params) { return this.api(\"POST\", \"/api/v1/sql/select\", { sql: sql, params: params || [] }); }",
+          "  };",
+          "}",
+          "var uid = parseInt(pm.environment.get(\"UsuarioID\"), 10) || 1;",
+          "pm.collectionVariables.set(\"STEFANIA_UID\", uid);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://aiquaa-sandbox-api.vercel.app"
+    },
+    {
+      "key": "apiKey",
+      "value": "sbx_demo_f581ca21e68a347288c94d71"
+    }
+  ]
+}
+

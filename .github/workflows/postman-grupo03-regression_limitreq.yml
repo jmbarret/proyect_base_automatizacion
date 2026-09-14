@@ -1,0 +1,170 @@
+name: Postman Regression - Grupo 03 Pagos de Servicios (lotes 30/min + reporte PDF)
+
+# Variante del workflow postman-grupo03-regression.yml que respeta el rate limit
+# del sandbox (30 req/min por API key). La coleccion unificada tiene 128 requests
+# y ~276 llamadas HTTP reales (cada pm.sendRequest de pre-request/test tambien
+# cuenta). Estrategia (skill postman-newman):
+#   1. split_chunks.py parte la coleccion en lotes de <=28 llamadas estimadas
+#      (inyecta ids estables g03-NNNN para correlacionar ejecuciones).
+#   2. Cada lote corre en su propio `newman run` con --delay-request 1000.
+#   3. Pausa de 75s entre lotes: vacia la ventana deslizante de 60s.
+#   4. Reintento 429 (retry_429.py): si un lote devuelve 429 (colapso con otros
+#      grupos) o fallos de red, espera max(75, Retry-After+10)s (tope 180s) y
+#      re-ejecuta SOLO esos requests, hasta 3 intentos por lote.
+#   5. merge_results.py fusiona los parciales en un solo results.json para el
+#      PDF (ante reintento gana la ultima ejecucion, sin doble conteo).
+# Scripts auxiliares (split_chunks.py, retry_429.py, merge_results.py) conviven
+# con este workflow en .github/workflows/.
+
+on:
+  push:
+    branches: ["main", "grupo-03-pagos-servicios"]
+    paths:
+      - "postman/Grupo 03 - Pago de Servicios_collection.json"
+      - "postman/Grupo 03 - Pago de Servicios_environment.json"
+      - ".github/workflows/postman-grupo03-regression_limitreq.yml"
+      - ".github/workflows/split_chunks.py"
+      - ".github/workflows/merge_results.py"
+      - ".github/workflows/retry_429.py"
+  pull_request:
+    branches: ["main", "grupo-03-pagos-servicios"]
+    paths:
+      - "postman/Grupo 03 - Pago de Servicios_collection.json"
+      - "postman/Grupo 03 - Pago de Servicios_environment.json"
+      - ".github/workflows/postman-grupo03-regression_limitreq.yml"
+      - ".github/workflows/split_chunks.py"
+      - ".github/workflows/merge_results.py"
+      - ".github/workflows/retry_429.py"
+  workflow_dispatch:
+
+jobs:
+  newman-regression:
+    name: Newman por lotes + reporte PDF (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configurar Python (scripts + generador de PDF)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias Node
+        run: npm install
+
+      - name: Instalar dependencias Python (reportlab, Pillow)
+        run: pip install -r skills/postman-newman-skill/reporter/requirements.txt
+
+      - name: Partir colección en lotes (<=28 llamadas/lote)
+        run: python3 .github/workflows/split_chunks.py --cap 28
+
+      - name: Ejecutar lotes Newman con pausa y reintentos 429
+        run: |
+          shopt -s nullglob
+          chunks=(newman/chunks/chunk-*.json)
+          total=${#chunks[@]}
+          if [ "$total" -eq 0 ]; then
+            echo "ERROR: no se generaron lotes"
+            exit 1
+          fi
+          FAILED=0
+          n=0
+          for chunk in "${chunks[@]}"; do
+            n=$((n + 1))
+            base=$(printf '%02d' "$n")
+            echo "=== Lote $n/$total: $chunk ==="
+            current="$chunk"
+            attempt=1
+            rc=0
+            while :; do
+              if [ "$attempt" -eq 1 ]; then
+                suffix=""
+              else
+                suffix="-r$attempt"
+              fi
+              partial="newman/partials/results-$base$suffix.json"
+              if npx newman run "$current" \
+                --environment "postman/Grupo 03 - Pago de Servicios_environment.json" \
+                --env-var "baseUrl=${{ vars.GRUPO03_BASE_URL }}" \
+                --env-var "apiKey=${{ secrets.GRUPO03_API_KEY }}" \
+                --env-var "UsuarioID=${{ vars.GRUPO03_USUARIO_ID }}" \
+                --delay-request 1000 \
+                --reporters cli,json \
+                --reporter-json-export "$partial"; then
+                rc=0
+              else
+                rc=$?
+              fi
+              if plan_out=$(python3 .github/workflows/retry_429.py plan \
+                --results "$partial" \
+                --chunk "$current" \
+                --attempt "$attempt" \
+                --max-attempts 3 \
+                --build-out "newman/chunks/chunk-$base-r$((attempt + 1)).json"); then
+                echo "$plan_out"
+              else
+                prc=$?
+                if [ "$prc" -eq 2 ] && [[ "$plan_out" =~ ^RETRY_WAIT=[0-9]+[[:space:]]RETRY_COUNT=[0-9]+$ ]]; then
+                  eval "$plan_out"
+                  echo "Lote $n: $RETRY_COUNT request(s) con 429/red — reintento $((attempt + 1))/3 tras ${RETRY_WAIT}s..."
+                  sleep "$RETRY_WAIT"
+                  current="newman/chunks/chunk-$base-r$((attempt + 1)).json"
+                  attempt=$((attempt + 1))
+                  continue
+                fi
+                echo "WARN: plan de reintento no disponible (rc=$prc): $plan_out"
+              fi
+              if [ "$rc" -ne 0 ]; then
+                echo "Lote $n con fallos (se continúa con el siguiente lote)"
+                FAILED=1
+              fi
+              break
+            done
+            if [ "$n" -lt "$total" ]; then
+              echo "Pausa 75s para vaciar la ventana de rate limit (30 req/min)..."
+              sleep 75
+            fi
+          done
+          echo "NEWMAN_FAILED=$FAILED" >> "$GITHUB_ENV"
+
+      - name: Fusionar resultados de lotes
+        if: always()
+        run: python3 .github/workflows/merge_results.py
+
+      - name: Verificar resultado de la regresión
+        if: always()
+        run: |
+          if [ "${NEWMAN_FAILED:-0}" = "1" ]; then
+            echo "Regresión con fallos (ver reporte PDF)"
+            exit 1
+          fi
+          echo "Regresión OK"
+
+      - name: Generar reporte PDF
+        if: always()
+        run: >
+          python skills/postman-newman-skill/reporter/newman_report.py
+          --results newman/results.json
+          --banner skills/postman-newman-skill/reporter/assets/banner_portada.png
+          --logo-aiquaa skills/postman-newman-skill/reporter/assets/logo_aiquaa_circle.png
+          --logo-postman skills/postman-newman-skill/reporter/assets/logo_postman_clean.png
+          --repo-url "${{ github.server_url }}/${{ github.repository }}"
+          --api-version "${{ github.sha }}"
+          --author "${{ github.triggering_actor }}"
+          --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          --output newman/report.pdf
+
+      - name: Subir informe PDF de la regresión
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-regresion-grupo03
+          path: newman/report.pdf
+          retention-days: 7
