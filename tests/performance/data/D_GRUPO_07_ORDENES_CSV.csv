@@ -1,0 +1,4 @@
+usuarioId,producto1,cantidad1,precioUnitario1,producto2,cantidad2,precioUnitario2,montoEsperado
+1,Teclado,2,10.50,Mouse,1,5.25,26.25
+1,Teclado,1,10.50,Mouse,2,5.25,21.00
+1,Teclado,3,10.50,Mouse,1,5.25,36.75

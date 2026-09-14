@@ -1,1 +1,0 @@
-Prueba técnica git -Julieta-Sanabria
