@@ -1,0 +1,7 @@
+usuarioId,tipoEvento,exitoso,ip,userAgent
+1,login,true,192.168.0.10,Chrome-Windows
+2,logout,true,192.168.0.11,Firefox-Windows
+3,password_reset_solicitado,true,10.0.0.15,Edge-Windows
+5,password_reset_completado,true,172.16.0.21,Chrome-Android
+6,login,false,192.168.1.25,Safari-iPhone
+7,logout,false,10.10.1.30,Firefox-Linux
