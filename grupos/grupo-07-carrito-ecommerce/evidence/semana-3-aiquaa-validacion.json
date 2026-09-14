@@ -1,0 +1,33 @@
+{
+  "valid": true,
+  "findings": [
+    {
+      "severity": "warning",
+      "message": "Request duplicado (mismo método+URL): GET {{baseUrl}}/api/v1/ordenes?usuarioId=1 (2 veces)."
+    },
+    {
+      "severity": "warning",
+      "message": "Request duplicado (mismo método+URL): POST {{baseUrl}}/api/v1/ordenes (7 veces)."
+    },
+    {
+      "severity": "warning",
+      "message": "Request duplicado (mismo método+URL): GET {{baseUrl}}/api/v1/ordenes/{{ordenId}} (3 veces)."
+    },
+    {
+      "severity": "warning",
+      "message": "Request duplicado (mismo método+URL): DELETE {{baseUrl}}/api/v1/ordenes/{{ordenId}} (2 veces)."
+    },
+    {
+      "severity": "warning",
+      "message": "La colección usa {{g7UsuarioId}} pero no está declarada en collection.variable ni en el environment."
+    },
+    {
+      "severity": "warning",
+      "message": "La colección usa {{g7Producto1}} pero no está declarada en collection.variable ni en el environment."
+    },
+    {
+      "severity": "warning",
+      "message": "La colección usa {{g7Producto2}} pero no está declarada en collection.variable ni en el environment."
+    }
+  ]
+}

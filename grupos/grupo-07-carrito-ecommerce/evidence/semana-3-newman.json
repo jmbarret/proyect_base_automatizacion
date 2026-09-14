@@ -1,0 +1,232 @@
+{
+  "startedAt": "2026-09-07T00:22:42.574Z",
+  "baseUrl": "https://aiquaa-sandbox-api.vercel.app",
+  "folder": "Semana 3 - SQL dinamico",
+  "newmanVersion": "6.2.2",
+  "baseCommit": "199f26db36b82f4a703ba4e3dac0785df8f9af56",
+  "scope": "Dos casos RF-G7-02; no ejecuta los 20 requests de regresion existentes.",
+  "requests": [
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 477
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 278
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 279
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/ordenes",
+      "status": 201,
+      "durationMs": 294
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 271
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 267
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 391
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 304
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 291
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/ordenes",
+      "status": 400,
+      "durationMs": 289
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 379
+    },
+    {
+      "method": "POST",
+      "url": "https://aiquaa-sandbox-api.vercel.app/api/v1/sql/select",
+      "status": 200,
+      "durationMs": 262
+    }
+  ],
+  "assertions": [
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 comprador dinamico - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 conteo ordenes - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 conteo items - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 checkout HTTP 201",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 comprador, producto, total y estado",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 respuesta contiene dos items calculados",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 cabecera persistida - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 SQL confirma cabecera completa",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 detalle persistido - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 01 Checkout exitoso con SQL",
+      "name": "RF-G7-02 SQL confirma ambos items y total",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 comprador dinamico - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 conteo ordenes - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 conteo items - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 cantidad cero HTTP 400",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 rechazo VALIDATION_ERROR",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 conteo ordenes - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 conteo items - SQL 200 y contrato valido",
+      "passed": true
+    },
+    {
+      "case": "G7-S3 02 Cantidad cero sin inserciones",
+      "name": "RF-G7-02 rechazo no inserta cabecera ni items",
+      "passed": true
+    }
+  ],
+  "diagnostics": [
+    "G7-S3 precondicion {\"usuarioId\":1,\"counts\":{\"ordenes\":0,\"items\":0}}",
+    "G7-S3 persistencia {\"ordenId\":\"125\",\"cabeceras\":1,\"items\":2}",
+    "G7-S3 precondicion {\"usuarioId\":1,\"counts\":{\"ordenes\":0,\"items\":0}}",
+    "G7-S3 rechazo {\"antes\":{\"ordenes\":0,\"items\":0},\"despues\":{\"ordenes\":0,\"items\":0}}"
+  ],
+  "finishedAt": "2026-09-07T00:22:51.891Z",
+  "stats": {
+    "iterations": {
+      "total": 1,
+      "pending": 0,
+      "failed": 0
+    },
+    "items": {
+      "total": 2,
+      "pending": 0,
+      "failed": 0
+    },
+    "scripts": {
+      "total": 6,
+      "pending": 0,
+      "failed": 0
+    },
+    "prerequests": {
+      "total": 2,
+      "pending": 0,
+      "failed": 0
+    },
+    "requests": {
+      "total": 12,
+      "pending": 0,
+      "failed": 0
+    },
+    "tests": {
+      "total": 2,
+      "pending": 0,
+      "failed": 0
+    },
+    "assertions": {
+      "total": 18,
+      "pending": 0,
+      "failed": 0
+    },
+    "testScripts": {
+      "total": 2,
+      "pending": 0,
+      "failed": 0
+    },
+    "prerequestScripts": {
+      "total": 4,
+      "pending": 0,
+      "failed": 0
+    }
+  },
+  "failures": [],
+  "passed": true
+}

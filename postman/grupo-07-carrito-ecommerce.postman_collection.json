@@ -16,6 +16,11 @@
     {
       "key": "ordenId",
       "value": ""
+    },
+    {
+      "key": "g7Cantidad",
+      "value": 2,
+      "type": "number"
     }
   ],
   "item": [
@@ -921,6 +926,273 @@
           }
         }
       ]
+    },
+    {
+      "name": "Semana 3 - SQL dinamico",
+      "description": "RF-G7-02: SQL previo obtiene comprador real; POST checkout; SQL posterior verifica cabecera y detalle. Cada caso usa un marcador unico para evitar interferencia con otras ejecuciones.",
+      "item": [
+        {
+          "name": "G7-S3 01 Checkout exitoso con SQL",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const base = String(pm.variables.get('baseUrl') || '');",
+                  "const key = String(pm.variables.get('apiKey') || '');",
+                  "if (!/^https?:\\/\\//.test(base) || !key || key.indexOf('REEMPLAZAR') === 0) {",
+                  "  utils.fail(pm, 'RF-G7-02 configuracion requerida', new Error('Configurar baseUrl y apiKey en el environment.'));",
+                  "} else {",
+                  "  utils.sql(pm, 'RF-G7-02 comprador dinamico', 'SELECT id FROM usuarios ORDER BY id LIMIT 1', [], function (result) {",
+                  "    pm.expect(result.rowCount, 'Se necesita un usuario sembrado').to.equal(1);",
+                  "    const usuarioId = Number(result.data[0].id);",
+                  "    pm.expect(Number.isSafeInteger(usuarioId) && usuarioId > 0).to.equal(true);",
+                  "    pm.variables.set('g7UsuarioId', usuarioId);",
+                  "    utils.counts(pm, function (counts) {",
+                  "      pm.expect(counts).to.deep.equal({ ordenes: 0, items: 0 });",
+                  "      pm.variables.set('g7Antes', JSON.stringify(counts));",
+                  "      console.log('G7-S3 precondicion', JSON.stringify({ usuarioId: usuarioId, counts: counts }));",
+                  "    });",
+                  "  });",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('RF-G7-02 checkout HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "let order;",
+                  "try {",
+                  "  order = pm.response.json().data;",
+                  "  pm.expect(order).to.be.an('object');",
+                  "  pm.expect(Number.isSafeInteger(Number(order.id)) && Number(order.id) > 0).to.equal(true);",
+                  "} catch (error) { utils.fail(pm, 'RF-G7-02 respuesta contiene orden valida', error); }",
+                  "if (order && pm.response.code === 201 && Number.isSafeInteger(Number(order.id)) && Number(order.id) > 0) {",
+                  "  pm.variables.set('g7OrdenId', order.id);",
+                  "  const products = [pm.variables.get('g7Producto1'), pm.variables.get('g7Producto2')];",
+                  "  pm.test('RF-G7-02 comprador, producto, total y estado', function () {",
+                  "    pm.expect(Number(order.usuario_id)).to.equal(Number(pm.variables.get('g7UsuarioId')));",
+                  "    pm.expect(order.producto).to.equal(products[0]);",
+                  "    pm.expect(order.estado).to.equal('pendiente');",
+                  "    pm.expect(Number(order.monto)).to.equal(26.25);",
+                  "  });",
+                  "  pm.test('RF-G7-02 respuesta contiene dos items calculados', function () {",
+                  "    pm.expect(order.items).to.have.lengthOf(2);",
+                  "    order.items.forEach(function (item, i) {",
+                  "      pm.expect(item.producto).to.equal(products[i]);",
+                  "      pm.expect(Number(item.orden_id)).to.equal(Number(order.id));",
+                  "      pm.expect(Number(item.cantidad)).to.equal([2, 1][i]);",
+                  "      pm.expect(Number(item.precio_unitario)).to.equal([10.5, 5.25][i]);",
+                  "      pm.expect(Number(item.subtotal)).to.equal([21, 5.25][i]);",
+                  "    });",
+                  "  });",
+                  "  utils.sql(pm, 'RF-G7-02 cabecera persistida',",
+                  "    'SELECT id, usuario_id, producto, monto, estado, activo FROM ordenes WHERE id = $1', [order.id], function (result) {",
+                  "      pm.test('RF-G7-02 SQL confirma cabecera completa', function () {",
+                  "        pm.expect(result.rowCount).to.equal(1);",
+                  "        const row = result.data[0];",
+                  "        pm.expect(Number(row.id)).to.equal(Number(order.id));",
+                  "        pm.expect(Number(row.usuario_id)).to.equal(Number(pm.variables.get('g7UsuarioId')));",
+                  "        pm.expect(row.producto).to.equal(products[0]);",
+                  "        pm.expect(Number(row.monto)).to.equal(26.25);",
+                  "        pm.expect(row.estado).to.equal('pendiente');",
+                  "        pm.expect(row.activo).to.equal(true);",
+                  "      });",
+                  "      utils.sql(pm, 'RF-G7-02 detalle persistido',",
+                  "        'SELECT id, orden_id, producto, cantidad, precio_unitario, subtotal FROM items_orden WHERE orden_id = $1 ORDER BY id',",
+                  "        [order.id], function (details) {",
+                  "          pm.test('RF-G7-02 SQL confirma ambos items y total', function () {",
+                  "            pm.expect(details.rowCount).to.equal(2);",
+                  "            details.data.forEach(function (row, i) {",
+                  "              pm.expect(Number(row.id)).to.equal(Number(order.items[i].id));",
+                  "              pm.expect(Number(row.orden_id)).to.equal(Number(order.id));",
+                  "              pm.expect(row.producto).to.equal(products[i]);",
+                  "              pm.expect(Number(row.cantidad)).to.equal([2, 1][i]);",
+                  "              pm.expect(Number(row.precio_unitario)).to.equal([10.5, 5.25][i]);",
+                  "              pm.expect(Number(row.subtotal)).to.equal([21, 5.25][i]);",
+                  "            });",
+                  "            pm.expect(details.data.reduce(function (sum, row) { return sum + Number(row.subtotal); }, 0)).to.equal(26.25);",
+                  "          });",
+                  "          console.log('G7-S3 persistencia', JSON.stringify({ ordenId: order.id, cabeceras: result.rowCount, items: details.rowCount }));",
+                  "        });",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/ordenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{g7UsuarioId}},\n  \"items\": [\n    { \"producto\": \"{{g7Producto1}}\", \"cantidad\": {{g7Cantidad}}, \"precioUnitario\": 10.50 },\n    { \"producto\": \"{{g7Producto2}}\", \"cantidad\": 1, \"precioUnitario\": 5.25 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "RF-G7-02. BDD: Completar una compra con productos disponibles. SQL aporta el comprador, no se presupone stock (fuera del contrato)."
+          }
+        },
+        {
+          "name": "G7-S3 02 Cantidad cero sin inserciones",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('g7Cantidad', 0);",
+                  "pm.variables.set('g7Cantidad', 0); // unico campo que cambia respecto al caso feliz",
+                  "const base = String(pm.variables.get('baseUrl') || '');",
+                  "const key = String(pm.variables.get('apiKey') || '');",
+                  "if (!/^https?:\\/\\//.test(base) || !key || key.indexOf('REEMPLAZAR') === 0) {",
+                  "  utils.fail(pm, 'RF-G7-02 configuracion requerida', new Error('Configurar baseUrl y apiKey en el environment.'));",
+                  "} else {",
+                  "  utils.sql(pm, 'RF-G7-02 comprador dinamico', 'SELECT id FROM usuarios ORDER BY id LIMIT 1', [], function (result) {",
+                  "    pm.expect(result.rowCount, 'Se necesita un usuario sembrado').to.equal(1);",
+                  "    const usuarioId = Number(result.data[0].id);",
+                  "    pm.expect(Number.isSafeInteger(usuarioId) && usuarioId > 0).to.equal(true);",
+                  "    pm.variables.set('g7UsuarioId', usuarioId);",
+                  "    utils.counts(pm, function (counts) {",
+                  "      pm.expect(counts).to.deep.equal({ ordenes: 0, items: 0 });",
+                  "      pm.variables.set('g7Antes', JSON.stringify(counts));",
+                  "      console.log('G7-S3 precondicion', JSON.stringify({ usuarioId: usuarioId, counts: counts }));",
+                  "    });",
+                  "  });",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('RF-G7-02 cantidad cero HTTP 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('RF-G7-02 rechazo VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR');",
+                  "});",
+                  "utils.counts(pm, function (after) {",
+                  "  pm.test('RF-G7-02 rechazo no inserta cabecera ni items', function () {",
+                  "    const before = JSON.parse(pm.variables.get('g7Antes'));",
+                  "    pm.expect(before).to.deep.equal({ ordenes: 0, items: 0 });",
+                  "    pm.expect(after).to.deep.equal(before);",
+                  "  });",
+                  "  console.log('G7-S3 rechazo', JSON.stringify({ antes: JSON.parse(pm.variables.get('g7Antes')), despues: after }));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/ordenes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": {{g7UsuarioId}},\n  \"items\": [\n    { \"producto\": \"{{g7Producto1}}\", \"cantidad\": {{g7Cantidad}}, \"precioUnitario\": 10.50 },\n    { \"producto\": \"{{g7Producto2}}\", \"cantidad\": 1, \"precioUnitario\": 5.25 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "RF-G7-02. BDD: No permitir confirmar una compra con cantidad cero de un producto. Negativo/limite inferior: SQL verifica que no se insertan filas identificadas por el marcador del intento."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Semana 3 - RF-G7-02. Helper unico; configuracion con precedencia normal de Postman.",
+          "utils = {",
+          "  bodySqlRest: function (sql, params) {",
+          "    return {",
+          "      url: String(pm.variables.get('baseUrl')).replace(/\\/$/, '') + '/api/v1/sql/select',",
+          "      method: 'POST',",
+          "      header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('apiKey') },",
+          "      body: { mode: 'raw', raw: JSON.stringify({ sql: sql, params: params || [] }) }",
+          "    };",
+          "  },",
+          "  fail: function (pm, label, error) {",
+          "    pm.test(label, function () { throw error; });",
+          "    if (pm.info.eventName === 'prerequest') {",
+          "      pm.execution.setNextRequest(null);",
+          "      pm.execution.skipRequest();",
+          "    }",
+          "  },",
+          "  sql: function (pm, label, sql, params, next) {",
+          "    pm.sendRequest(utils.bodySqlRest(sql, params), function (err, res) {",
+          "      let result;",
+          "      try {",
+          "        pm.expect(err, label + ': transporte').to.equal(null);",
+          "        pm.expect(res.code, label + ': HTTP').to.equal(200);",
+          "        result = res.json();",
+          "        pm.expect(result.data, label + ': data').to.be.an('array');",
+          "        pm.expect(result.rowCount, label + ': rowCount').to.equal(result.data.length);",
+          "      } catch (error) { utils.fail(pm, label, error); return; }",
+          "      pm.test(label + ' - SQL 200 y contrato valido', function () {",
+          "        pm.expect(result.rowCount).to.equal(result.data.length);",
+          "      });",
+          "      try { next(result); } catch (error) { utils.fail(pm, label + ' - datos esperados', error); }",
+          "    });",
+          "  },",
+          "  counts: function (pm, next) {",
+          "    const products = [pm.variables.get('g7Producto1'), pm.variables.get('g7Producto2')];",
+          "    utils.sql(pm, 'RF-G7-02 conteo ordenes', 'SELECT COUNT(*) AS total FROM ordenes WHERE producto = $1',",
+          "      [products[0]], function (orders) {",
+          "        utils.sql(pm, 'RF-G7-02 conteo items', 'SELECT COUNT(*) AS total FROM items_orden WHERE producto IN ($1, $2)',",
+          "          products, function (items) {",
+          "            const counts = { ordenes: Number(orders.data[0].total), items: Number(items.data[0].total) };",
+          "            pm.expect(Number.isSafeInteger(counts.ordenes)).to.equal(true);",
+          "            pm.expect(Number.isSafeInteger(counts.items)).to.equal(true);",
+          "            next(counts);",
+          "          });",
+          "      });",
+          "  }",
+          "};",
+          "// No altera los defaults ni el encadenamiento ordenId de la regresion existente.",
+          "if (pm.info.requestName.indexOf('G7-S3 ') === 0) {",
+          "  ['g7UsuarioId', 'g7OrdenId', 'g7Antes'].forEach(function (key) { pm.variables.unset(key); });",
+          "  pm.collectionVariables.set('g7Cantidad', 2);",
+          "  pm.variables.set('g7Cantidad', 2); // evita valores residuales o sombras del environment",
+          "  const tag = 'G7-S3-' + pm.variables.replaceIn('{{$guid}}');",
+          "  pm.variables.set('g7Producto1', tag + '-Teclado');",
+          "  pm.variables.set('g7Producto2', tag + '-Mouse');",
+          "}"
+        ]
+      }
     }
   ]
 }

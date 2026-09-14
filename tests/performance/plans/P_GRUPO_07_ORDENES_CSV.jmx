@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AIQUAA perf_generar draft corrected to preserve the supplied CSV, external secret, assertions and JSON correlation. Core JMeter 5.6.3 only. -->
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3"><hashTree><TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="GRUPO_07_ORDENES_CSV Performance Plan" enabled="true"><boolProp name="TestPlan.functional_mode">false</boolProp><boolProp name="TestPlan.serialize_threadgroups">false</boolProp><elementProp name="TestPlan.user_defined_variables" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp></TestPlan><hashTree>
+<ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Request Defaults" enabled="true"><elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp><stringProp name="HTTPSampler.domain">aiquaa-sandbox-api.vercel.app</stringProp><stringProp name="HTTPSampler.port">443</stringProp><stringProp name="HTTPSampler.protocol">https</stringProp><stringProp name="HTTPSampler.implementation">HttpClient4</stringProp><stringProp name="HTTPSampler.connect_timeout">10000</stringProp><stringProp name="HTTPSampler.response_timeout">30000</stringProp></ConfigTestElement><hashTree/>
+<ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CSV single pass - 1 worker, 3 rows" enabled="true"><stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">3</stringProp></elementProp></ThreadGroup><hashTree><CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config" enabled="true"><stringProp name="filename">../data/D_GRUPO_07_ORDENES_CSV.csv</stringProp><stringProp name="fileEncoding">UTF-8</stringProp><stringProp name="variableNames">usuarioId,producto1,cantidad1,precioUnitario1,producto2,cantidad2,precioUnitario2,montoEsperado</stringProp><stringProp name="delimiter">,</stringProp><boolProp name="quotedData">true</boolProp><boolProp name="ignoreFirstLine">true</boolProp><boolProp name="recycle">false</boolProp><boolProp name="stopThread">true</boolProp><stringProp name="shareMode">shareMode.all</stringProp></CSVDataSet><hashTree/>
+<HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON and external API key" enabled="true"><collectionProp name="HeaderManager.headers"><elementProp name="Content-Type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp><elementProp name="x-api-key" elementType="Header"><stringProp name="Header.name">x-api-key</stringProp><stringProp name="Header.value">${g7.csv.apiKey}</stringProp></elementProp></collectionProp></HeaderManager><hashTree/>
+<JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="Validate CSV row and external API_KEY (no HTTP)" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// This local control sample never sends HTTP or emits credential values.
+vars.put('g7.csv.ready', 'false')
+vars.remove('g7.csv.apiKey')
+vars.remove('ordenId')
+vars.put('g7.correlationReady', 'false')
+def fail = { String message -&gt;
+    SampleResult.setSuccessful(false)
+    SampleResult.setResponseCode('INPUT_CONFIGURATION_ERROR')
+    SampleResult.setResponseMessage(message)
+    ctx.getThread().stop()
+}
+def apiKey = System.getenv('API_KEY')
+if (apiKey == null || apiKey.trim().isEmpty() ||
+    apiKey.contains('\r') || apiKey.contains('\n')) {
+    fail('External API_KEY environment variable is required and must be single-line')
+    return
+}
+if (props.getProperty('g7.csv.profile') != 'GRUPO_07_ORDENES_CSV' ||
+    props.getProperty('httpclient4.retrycount') != '0' ||
+    props.getProperty('httpclient4.request_sent_retry_enabled') != 'false') {
+    fail('Load the dedicated Grupo 07 CSV properties; automatic retries must be disabled')
+    return
+}
+try {
+    // Read variables at runtime: no cached interpolation of CSV row values.
+    def numericNames = ['usuarioId', 'cantidad1', 'precioUnitario1',
+        'cantidad2', 'precioUnitario2', 'montoEsperado']
+    numericNames.each { name -&gt;
+        String value = vars.get(name)
+        if (value == null || !(value ==~ /-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?/)) {
+            throw new IllegalArgumentException()
+        }
+        new BigDecimal(value)
+    }
+    ['producto1', 'producto2'].each { name -&gt;
+        String value = vars.get(name)
+        if (value == null || value.isEmpty()) throw new IllegalArgumentException()
+        // The supplied rows contain plain product names. Fail closed for CSV
+        // values that need JSON escaping rather than sending malformed JSON.
+        def decoded = new groovy.json.JsonSlurper().parseText('&quot;' + value + '&quot;')
+        if (decoded != value) throw new IllegalArgumentException()
+    }
+} catch (Exception ignored) {
+    fail('CSV row must produce valid JSON with numeric IDs, quantities, prices and expected amount')
+    return
+}
+vars.put('g7.csv.apiKey', apiKey)
+vars.put('g7.csv.ready', 'true')
+SampleResult.setSuccessful(true)
+SampleResult.setIgnore()
+</stringProp></JSR223Sampler><hashTree/><IfController guiclass="IfControllerPanel" testclass="IfController" testname="POST and correlated GET only when row and secret are valid" enabled="true"><stringProp name="IfController.condition">${g7.csv.ready}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController><hashTree><HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="01 - Checkout exitoso (CSV)" enabled="true"><stringProp name="HTTPSampler.path">/api/v1/ordenes</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{
+  &quot;usuarioId&quot;: ${usuarioId},
+  &quot;items&quot;: [
+    {
+      &quot;producto&quot;: &quot;${producto1}&quot;,
+      &quot;cantidad&quot;: ${cantidad1},
+      &quot;precioUnitario&quot;: ${precioUnitario1}
+    },
+    {
+      &quot;producto&quot;: &quot;${producto2}&quot;,
+      &quot;cantidad&quot;: ${cantidad2},
+      &quot;precioUnitario&quot;: ${precioUnitario2}
+    }
+  ]
+}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp><boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.auto_redirects">false</boolProp><boolProp name="HTTPSampler.image_parser">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp></HTTPSamplerProxy><hashTree><ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="6 seconds before each POST - at most 10 RPM per worker" enabled="true"><stringProp name="ConstantTimer.delay">6000</stringProp></ConstantTimer><hashTree/><JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract ordenId from $.data.id" enabled="true">
+<stringProp name="JSONPostProcessor.referenceNames">ordenId</stringProp>
+<stringProp name="JSONPostProcessor.jsonPathExprs">$.data.id</stringProp>
+<stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+<stringProp name="JSONPostProcessor.defaultValues">NOT_FOUND</stringProp>
+<boolProp name="JSONPostProcessor.compute_concat">false</boolProp>
+</JSONPostProcessor><hashTree/><JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Checkout response contract and CSV expected amount" enabled="true">
+<stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// Generic diagnostics only; never log headers, credentials, or response body.
+def failures = []
+if (prev.getResponseCode() != '201') failures.add('Expected HTTP status 201')
+try {
+    def json = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    if (!(json instanceof Map) || !json.containsKey('data') || !(json.data instanceof Map)) {
+        failures.add('data must exist and be an object')
+    } else {
+        def data = json.data
+        if (!data.containsKey('id') || data.id == null) failures.add('data.id must exist')
+        if (data.estado != 'pendiente') failures.add('data.estado must be pendiente')
+        if (!(data.items instanceof List) || data.items.size() != 2)
+            failures.add('data.items must be an array with exactly two elements')
+        try {
+            // Accept numeric JSON or numeric strings, matching Postman Number(...).
+            BigDecimal actual = new BigDecimal(String.valueOf(data.monto))
+            BigDecimal expected = new BigDecimal(vars.get('montoEsperado'))
+            if (actual.compareTo(expected) != 0) failures.add('data.monto must equal CSV montoEsperado')
+        } catch (Exception ignored) {
+            failures.add('data.monto and montoEsperado must be numeric')
+        }
+    }
+} catch (Exception ignored) {
+    failures.add('Response must be valid JSON')
+}
+if (!failures.isEmpty()) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage(failures.join('; '))
+}
+</stringProp>
+</JSR223Assertion><hashTree/></hashTree>
+<JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="Validate POST to GET correlation" enabled="true">
+<stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// Runs immediately after the POST sampler, including its assertions.
+// Failure is a visible control sample; on_sample_error=continue advances the CSV loop.
+vars.put('g7.correlationReady', 'false')
+def failures = []
+if (prev == null || !prev.isSuccessful()) {
+    failures.add('POST sample did not pass')
+}
+String orderId = vars.get('ordenId')
+if (orderId == null) {
+    failures.add('ordenId was not extracted')
+} else if (orderId.trim().isEmpty()) {
+    failures.add('ordenId is blank')
+} else if (orderId == 'NOT_FOUND') {
+    failures.add('ordenId extraction returned NOT_FOUND')
+}
+if (!failures.isEmpty()) {
+    vars.remove('ordenId')
+    SampleResult.setSuccessful(false)
+    SampleResult.setResponseCode('CORRELATION_ERROR')
+    String message = 'Correlation failed: ' + failures.join('; ')
+    SampleResult.setResponseMessage(message)
+    // Preserve the reason in JTL even when response-message saving is disabled.
+    def detail = new org.apache.jmeter.assertions.AssertionResult('POST to GET correlation')
+    detail.setFailure(true)
+    detail.setFailureMessage(message)
+    SampleResult.addAssertionResult(detail)
+    return
+}
+vars.put('g7.correlationReady', 'true')
+SampleResult.setSuccessful(true)
+SampleResult.setIgnore()
+</stringProp>
+</JSR223Sampler><hashTree/>
+<IfController guiclass="IfControllerPanel" testclass="IfController" testname="GET only when correlation is valid" enabled="true">
+<stringProp name="IfController.condition">${g7.correlationReady}</stringProp>
+<boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp>
+</IfController><hashTree>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="02 - Consultar orden creada (correlacionada)" enabled="true">
+<elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+<stringProp name="HTTPSampler.path">/api/v1/ordenes/${ordenId}</stringProp><stringProp name="HTTPSampler.method">GET</stringProp>
+<boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+<boolProp name="HTTPSampler.image_parser">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+</HTTPSamplerProxy><hashTree>
+<ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="6 seconds before correlated GET - shared traffic budget" enabled="true">
+<stringProp name="ConstantTimer.delay">6000</stringProp>
+</ConstantTimer><hashTree/>
+<JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="GET HTTP 200 and correlated order ID" enabled="true">
+<stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// Compare against the current worker's extracted ID, never interpolated script text.
+def failures = []
+if (prev.getResponseCode() != '200') failures.add('Expected HTTP status 200')
+try {
+    def json = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    if (!(json instanceof Map) || !json.containsKey('data') || !(json.data instanceof Map)) {
+        failures.add('Top-level data must exist and be an object')
+    } else {
+        def data = json.data
+        if (!data.containsKey('id') || data.id == null) {
+            failures.add('data.id must exist and not be null')
+        } else if (String.valueOf(data.id) != vars.get('ordenId')) {
+            failures.add('data.id must equal the current extracted ordenId')
+        }
+    }
+} catch (Exception ignored) {
+    failures.add('Response must be valid JSON')
+}
+if (!failures.isEmpty()) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage(failures.join('; '))
+}
+</stringProp>
+</JSR223Assertion><hashTree/>
+</hashTree>
+</hashTree>
+</hashTree>
+</hashTree></hashTree></hashTree></jmeterTestPlan>

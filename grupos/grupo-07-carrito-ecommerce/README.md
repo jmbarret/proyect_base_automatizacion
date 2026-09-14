@@ -76,6 +76,21 @@ el artifact — solo el PDF.
 - [ ] CI/CD verde
 - [ ] PR a `main` usando la plantilla del repo
 
+## Trazabilidad BDD -> API - Juan Barreto
+
+Colección Postman: `postman/grupo-07-juan-barreto-carrito-e-commerce.postman_collection.json`.
+
+| Escenario BDD | Tipo | Endpoint | Método | Datos de entrada | Validaciones / Assertions |
+|---|---|---|---|---|---|
+| Completar una compra con productos disponibles | Happy Path | `{{baseUrl}}/api/v1/ordenes` | POST | `usuarioId: 1`; dos ítems: Teclado (`cantidad: 2`, `precioUnitario: 10.50`) y Mouse (`cantidad: 1`, `precioUnitario: 5.25`) | Status **201**; `data.id` existe; `data.estado` es `pendiente`; `data.items` contiene dos elementos; `data.monto` es **26.25**; tiempo de respuesta menor a 3000 ms; guarda `data.id` en `ordenId` |
+| No permitir finalizar una compra con el carrito vacío | Negativo | `{{baseUrl}}/api/v1/ordenes` | POST | `usuarioId: 1`; `items: []` | Status **400**; existe la estructura `error`; `error.code` es `VALIDATION_ERROR`; tiempo de respuesta menor a 3000 ms |
+| No permitir confirmar una compra con cantidad cero de un producto | Edge Case | `{{baseUrl}}/api/v1/ordenes` | POST | `usuarioId: 1`; Teclado con `cantidad: 0` y `precioUnitario: 10.50` | Status **400**; existe la estructura `error`; `error.code` es `VALIDATION_ERROR`; tiempo de respuesta menor a 3000 ms |
+
+### Variables de colección utilizadas
+
+- `baseUrl`: URL base del sandbox AIQUAA (`https://aiquaa-sandbox-api.vercel.app`).
+- `apiKey`: API key enviada mediante el header `x-api-key`; su valor se mantiene vacío en el archivo exportado para no publicar credenciales.
+- `ordenId`: identificador guardado automáticamente desde `data.id` después del checkout exitoso.
 ## Trazabilidad BDD -> API (AIQUAA)
 
 > Flujo de **eliminar producto de carrito** (Happy Path) — colección
@@ -98,6 +113,102 @@ el artifact — solo el PDF.
 - `baseUrl` → `https://aiquaa-sandbox-api.vercel.app`
 - `apiKey` → `sbx_demo_f581ca21e68a347288c94d71`
 - `eliminarId` → se setea automáticamente desde la respuesta del paso 1
+
+## Semana 3 — Checkout con datos SQL dinámicos
+
+La carpeta **Semana 3 - SQL dinamico** de la colección grupal
+`postman/grupo-07-carrito-ecommerce.postman_collection.json` agrega dos casos de
+`RF-G7-02`. Los 20 requests anteriores y las colecciones individuales se conservan.
+
+| Caso | Escenario BDD existente | Pre-request SQL | Assertions HTTP y SQL posterior |
+|---|---|---|---|
+| G7-S3 01 Checkout exitoso con SQL | Completar una compra con productos disponibles | Obtiene `usuarios.id` real; confirma cero cabeceras e ítems para el marcador del intento | 201; comprador, estado pendiente, producto, monto 26.25 y subtotales 21/5.25; relee `ordenes` por ID y los dos `items_orden` por `orden_id`, comparando cantidades, precios y subtotales |
+| G7-S3 02 Cantidad cero sin inserciones | No permitir confirmar una compra con cantidad cero de un producto | Obtiene comprador real; toma conteos propios; cambia únicamente el campo `g7Cantidad` de 2 a 0 | 400 `VALIDATION_ERROR`; conteos de cabeceras e ítems permanecen en cero |
+
+La mención de productos disponibles conserva el nombre del BDD; no implica verificar stock:
+el contrato no incluye catálogo ni existencias. El caso de cantidad cero cubre el mínimo
+negativo exigido y el límite inferior de cantidad. El caso previo de carrito vacío permanece
+en la regresión original. No se afirma cobertura de rollback por un fallo dentro de la
+transacción: este negativo es rechazado por validación de entrada.
+
+### Configuración y variables
+
+Importar la colección grupal y `postman/E_GRUPO_07_SQL.json`. Seleccionar ese environment,
+completar `apiKey` localmente y ejecutar solo la carpeta **Semana 3 - SQL dinamico**.
+
+- `baseUrl`: `https://aiquaa-sandbox-api.vercel.app`; el environment prevalece sobre el
+  localhost de la colección heredada.
+- `apiKey`: header `x-api-key`; el environment exportado queda vacío.
+- `g7Cantidad`: default de colección 2, reseteado antes de cada caso; el negativo usa 0.
+  Se establece también en el scope local para evitar que un environment lo sobrescriba.
+- `g7UsuarioId`: scope local, obtenido en cada pre-request mediante
+  `SELECT id FROM usuarios ORDER BY id LIMIT 1`; ningún ID está fijado en el nuevo body.
+- `g7Producto1/2`: marcadores UUID por intento, generados automáticamente.
+- `g7Antes` y `g7OrdenId`: datos locales de ejecución; no modifican el `ordenId` heredado.
+
+El helper `utils.bodySqlRest(sql, params)` se declara una sola vez en el pre-request de
+colección. Las consultas son SELECT parametrizados. Los conteos se limitan al marcador de
+cada intento (incluyen también órdenes inactivas), evitando que compras simultáneas de otros
+compañeros cambien el resultado. El body sigue siendo JSON legible con variables por campo.
+
+Los helpers que realizan operaciones asíncronas reciben el `pm` del script que los llama:
+esto permite que Newman registre los callbacks en el contexto vigente. Un fallo SQL, JSON
+inválido o comprador ausente registra una assertion fallida y detiene el checkout mediante
+`skipRequest()` y `setNextRequest(null)`.
+
+### Ejecución y evidencia
+
+Con las dependencias del repositorio instaladas, definir `API_KEY` en el entorno del proceso
+y ejecutar desde la raíz:
+
+```bash
+node grupos/grupo-07-carrito-ecommerce/run-sql-newman.cjs
+```
+
+El runner usa Newman, limita la ejecución a los dos casos y guarda un reporte reducido en
+`grupos/grupo-07-carrito-ecommerce/evidence/semana-3-newman.json`. Excluye headers, credenciales,
+bodies y datos personales. Devuelve código distinto de cero si falla o si no ejecuta ambos
+requests de negocio. `BASE_URL` permite cambiar el sandbox explícitamente.
+
+Alternativa Postman/Newman: completar la API key en una copia local del environment y ejecutar:
+
+```bash
+npx newman run postman/grupo-07-carrito-ecommerce.postman_collection.json -e postman/E_GRUPO_07_SQL.json --folder "Semana 3 - SQL dinamico" --bail --delay-request 2500
+```
+
+No publicar el environment con credenciales ni un reporte JSON estándar sin sanear.
+La carpeta consume **12 solicitudes** por corrida (10 SQL y 2 de negocio); el límite del
+sandbox es 30/minuto por API key, compartido con otros usuarios. El delay de Newman se aplica
+a los requests principales; los `pm.sendRequest` internos también cuentan para el límite.
+Dejar al menos un minuto entre corridas repetidas y coordinar el uso de la clave compartida.
+
+Pruebas locales de protección, sin acceso al sandbox ni credenciales reales:
+
+```bash
+node --test grupos/grupo-07-carrito-ecommerce/tests/api/sql-prerequest.test.cjs
+```
+
+Resultado registrado: **18 assertions, 0 fallos, 12 solicitudes**, con Newman 6.2.2 el
+2026-09-07 a las 00:22 UTC (2026-09-06, 21:22 de Asunción). Comprador dinámico 1; orden creada
+125, con una cabecera y dos ítems. Negativo: conteos 0/0 antes y después.
+Las cuatro protecciones locales también pasaron. Ver `evidence/SEMANA-3.md`.
+
+Cada corrida exitosa crea una orden y dos ítems de prueba, que permanecen en el sandbox;
+no hay limpieza destructiva. La evidencia corresponde al subset de Semana 3, no certifica
+la regresión completa, BDD ni UI.
+
+### Entrega
+
+Descripción en `PR-SEMANA-3.md`: el PR #54 entrega a la rama compartida
+`grupo-07-carrito-ecommerce` y el PR grupal #51 integra hacia `main`.
+Los archivos de herramientas locales (`.agents/`, `.codegraph/`,
+`skills-lock.json`) quedan fuera de esta entrega.
+
+Fuentes: `docs/TAREA-SQL-REST-DINAMICO.md`,
+`docs/requerimientos/_src/grupo-07.mjs` (RF-G7-02),
+`features/carrito-ecommerce.feature` del grupo, y contrato público de
+[checkout](https://github.com/stevenayal/aiquaa-sandbox-api/blob/main/app/api/v1/ordenes/route.ts)
+y [SQL REST](https://github.com/stevenayal/aiquaa-sandbox-api/blob/main/lib/handle-sql-request.ts).
 
 ## Tarea 3 — Verificación de BD (SQL REST)
 

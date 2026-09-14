@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with AIQUAA perf_generar; corrected for PERF-ORDENES-GET-001.
+     Core JMeter + bundled Groovy only. See ../GRUPO_07_ORDENES_BASELINE.md.
+     Open deterministic arrivals are implemented by independent one-shot workers,
+     not by closed-loop throughput timers or random arrival plugins. -->
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+<hashTree>
+<TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="PERF-ORDENES-GET-001 - Grupo 07 orders baseline" enabled="true">
+<boolProp name="TestPlan.functional_mode">false</boolProp>
+<boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+<elementProp name="TestPlan.user_defined_variables" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+</TestPlan>
+<hashTree>
+<SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="Validate configuration without network access" enabled="true">
+<stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+<elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="One iteration" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><intProp name="LoopController.loops">1</intProp></elementProp>
+<stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></SetupThreadGroup>
+<hashTree><JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="G7 setup" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// PERF-ORDENES-GET-001. No credential values enter properties or result data.
+props.remove('g7.ordenes.state')
+def fail = { String reason -&gt;
+    SampleResult.setSuccessful(false)
+    SampleResult.setResponseCode('CONFIGURATION_ERROR')
+    SampleResult.setResponseMessage(reason)
+    ctx.getEngine().stopTest(true)
+}
+def key = System.getenv('API_KEY')
+if (key == null || key.trim().isEmpty() || key.contains('\r') || key.contains('\n')) {
+    fail('A valid external API_KEY environment variable is required')
+    return
+}
+if (props.getProperty('g7.requirementId') != 'PERF-ORDENES-GET-001' ||
+    props.getProperty('g7.targetRpm') != '10' ||
+    props.getProperty('g7.ceilingRpm') != '30' ||
+    props.getProperty('g7.durationSeconds') != '120' ||
+    props.getProperty('g7.rampUpSeconds') != '15' ||
+    props.getProperty('g7.workerSlots') != '18' ||
+    props.getProperty('httpclient4.retrycount') != '0' ||
+    props.getProperty('httpclient4.request_sent_retry_enabled') != 'false') {
+    fail('Load the Grupo 07 properties unchanged; scenario or retry settings are invalid')
+    return
+}
+// One process only: all one-shot workers share this gate and epoch.
+props.put('g7.ordenes.state', [lock: new Object(), startNs: 0L, lastReleaseNs: 0L])
+SampleResult.setSuccessful(true)
+SampleResult.setIgnore()
+</stringProp></JSR223Sampler><hashTree/></hashTree>
+<ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Open deterministic arrivals - 18 one-shot worker slots" enabled="true">
+<stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+<elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="One iteration" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><intProp name="LoopController.loops">1</intProp></elementProp>
+<stringProp name="ThreadGroup.num_threads">18</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp><boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp></ThreadGroup>
+<hashTree>
+<JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="G7 arrival gate" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// Ignored control sample: waiting is NOT included in HTTP elapsed time.
+vars.put('g7.dispatch', 'false')
+def state = props.get('g7.ordenes.state')
+def key = System.getenv('API_KEY')
+def fail = { String reason -&gt;
+    SampleResult.setSuccessful(false)
+    SampleResult.setResponseCode('SCHEDULE_ERROR')
+    SampleResult.setResponseMessage(reason)
+}
+if (state == null || key == null || key.trim().isEmpty()) {
+    fail('Validated setup state and external API_KEY are required')
+    ctx.getEngine().stopTest(true)
+    return
+}
+long start
+synchronized (state.lock) {
+    if (state.startNs == 0L) state.startNs = System.nanoTime()
+    start = state.startNs
+}
+int ordinal = ctx.getThreadNum() + 1
+// Integral of a linear 0 -&gt; 1/6 RPS ramp over 15 s = 1.25 arrivals.
+// Release when integrated arrivals reaches each integer, then every 6 s.
+double offsetSeconds = ordinal &lt;= 1.25d ?
+    Math.sqrt(180.0d * ordinal) : 15.0d + (ordinal - 1.25d) * 6.0d
+long due = start + Math.round(offsetSeconds * 1_000_000_000d)
+long deadline = start + 120_000_000_000L
+def waitUntil = { long target -&gt;
+    long remaining
+    while ((remaining = target - System.nanoTime()) &gt; 0L) {
+        java.util.concurrent.TimeUnit.NANOSECONDS.sleep(Math.min(remaining, 100_000_000L))
+    }
+}
+try {
+    waitUntil(due)
+    synchronized (state.lock) {
+        // A late worker cannot cause a catch-up burst. Small scheduling jitter
+        // is tolerated, but missed slots are visible failures and are not retried.
+        long release = Math.max(due, state.lastReleaseNs == 0L ?
+            due : state.lastReleaseNs + 6_000_000_000L)
+        if (release &gt; due + 500_000_000L || System.nanoTime() &gt; due + 500_000_000L) {
+            fail('Arrival slot missed; request skipped to prevent catch-up traffic')
+            return
+        }
+        waitUntil(release)
+        long now = System.nanoTime()
+        if (now &gt;= deadline || now &gt; due + 500_000_000L) {
+            fail('Arrival deadline missed; request skipped')
+            return
+        }
+        state.lastReleaseNs = now
+        // Split the remaining wall-clock budget between connect and response.
+        // These are execution bounds, NOT response-time acceptance thresholds.
+        long budgetMs = Math.max(2L, (deadline - now).intdiv(1_000_000L) - 100L)
+        long connectMs = Math.min(10_000L, Math.max(1L, budgetMs.intdiv(5L)))
+        long responseMs = Math.min(30_000L, Math.max(1L, budgetMs - connectMs))
+        vars.put('g7.connectMs', Long.toString(connectMs))
+        vars.put('g7.responseMs', Long.toString(responseMs))
+        vars.put('g7.apiKey', key)
+        vars.put('g7.dispatch', 'true')
+    }
+    SampleResult.setSuccessful(true)
+    SampleResult.setIgnore()
+} catch (InterruptedException ignored) {
+    Thread.currentThread().interrupt()
+    fail('Arrival scheduling interrupted; no request dispatched')
+}
+</stringProp></JSR223Sampler><hashTree/>
+<IfController guiclass="IfControllerPanel" testclass="IfController" testname="Dispatch only an admitted arrival" enabled="true">
+<stringProp name="IfController.condition">${g7.dispatch}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp>
+</IfController>
+<hashTree>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G7-01 Listar todas las ordenes (sin filtro)" enabled="true">
+<elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+<stringProp name="HTTPSampler.domain">aiquaa-sandbox-api.vercel.app</stringProp><stringProp name="HTTPSampler.port">443</stringProp><stringProp name="HTTPSampler.protocol">https</stringProp>
+<stringProp name="HTTPSampler.path">/api/v1/ordenes</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+<boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+<boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.image_parser">false</boolProp>
+<stringProp name="HTTPSampler.connect_timeout">${g7.connectMs}</stringProp><stringProp name="HTTPSampler.response_timeout">${g7.responseMs}</stringProp>
+</HTTPSamplerProxy>
+<hashTree>
+<HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="External authentication and JSON header" enabled="true">
+<collectionProp name="HeaderManager.headers">
+<elementProp name="x-api-key" elementType="Header"><stringProp name="Header.name">x-api-key</stringProp><stringProp name="Header.value">${g7.apiKey}</stringProp></elementProp>
+<elementProp name="Content-Type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp>
+</collectionProp></HeaderManager><hashTree/>
+<JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="HTTP 200 and orders contract" enabled="true">
+<stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">// Keep diagnostics generic: never include response data or headers.
+try {
+    if (prev.getResponseCode() != '200') {
+        AssertionResult.setFailure(true)
+        AssertionResult.setFailureMessage('Expected HTTP status 200')
+    } else {
+        def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+        boolean valid = body instanceof Map &amp;&amp; body.containsKey('data') &amp;&amp;
+            body.data instanceof List &amp;&amp; body.data.size() &lt;= 100 &amp;&amp;
+            body.data.every { entry -&gt; entry instanceof Map &amp;&amp; !entry.containsKey('items') }
+        if (!valid) {
+            AssertionResult.setFailure(true)
+            AssertionResult.setFailureMessage('Expected top-level data array of at most 100 order objects without items')
+        }
+    }
+} catch (Exception ignored) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage('Response must be valid JSON matching the orders contract')
+}
+</stringProp>
+</JSR223Assertion><hashTree/>
+</hashTree>
+</hashTree>
+<JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="G7 finish within total observation window" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">vars.remove('g7.apiKey')
+def state = props.get('g7.ordenes.state')
+if (state != null &amp;&amp; state.startNs != 0L) {
+    long end = state.startNs + 120_000_000_000L
+    try {
+        long remaining
+        while ((remaining = end - System.nanoTime()) &gt; 0L) {
+            java.util.concurrent.TimeUnit.NANOSECONDS.sleep(Math.min(remaining, 100_000_000L))
+        }
+    } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt()
+    }
+}
+SampleResult.setSuccessful(true)
+SampleResult.setIgnore()
+</stringProp></JSR223Sampler><hashTree/>
+</hashTree>
+<ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="120-second total deadline guard (no HTTP)" enabled="true">
+<stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+<elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="One iteration" enabled="true"><boolProp name="LoopController.continue_forever">false</boolProp><intProp name="LoopController.loops">1</intProp></elementProp>
+<stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp>
+</ThreadGroup><hashTree>
+<JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="G7 enforce total duration" enabled="true">
+<stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp>
+<stringProp name="script">// End the workload at the shared 120-second deadline, including in-flight HTTP.
+SampleResult.setSuccessful(true)
+SampleResult.setIgnore()
+def state = props.get('g7.ordenes.state')
+if (state == null) {
+    ctx.getEngine().stopTest(true)
+    return
+}
+try {
+    long start = 0L
+    while (start == 0L) {
+        synchronized (state.lock) { start = state.startNs }
+        if (start == 0L) Thread.sleep(10L)
+    }
+    long deadline = start + 120_000_000_000L
+    long remaining
+    while ((remaining = deadline - System.nanoTime()) &gt; 0L) {
+        java.util.concurrent.TimeUnit.NANOSECONDS.sleep(Math.min(remaining, 100_000_000L))
+    }
+    ctx.getEngine().stopTest(true)
+} catch (InterruptedException ignored) {
+    Thread.currentThread().interrupt()
+}
+</stringProp>
+</JSR223Sampler><hashTree/>
+</hashTree>
+</hashTree>
+</hashTree>
+</jmeterTestPlan>
