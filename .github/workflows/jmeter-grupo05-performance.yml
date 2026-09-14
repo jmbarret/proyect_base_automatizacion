@@ -1,12 +1,11 @@
 name: JMeter Grupo 05 - Tarjetas (con informe PDF)
 
+# Sin trigger de push sobre la rama del grupo: con el PR abierto, cada push
+# disparaba la misma medicion dos veces (push + pull_request) sobre la misma
+# api-key. Peor, con tres runs en el grupo de concurrencia uno corre, otro queda
+# pendiente y el tercero cancela al pendiente, que fue lo que dejo sin ejecutar
+# a la regresion Newman. Para correr sin PR abierto esta workflow_dispatch.
 on:
-  push:
-    branches: ["grupo-05-tarjetas-credito-debito"]
-    paths:
-      - "tests/performance/plans/Grupo05_Tarjetas_v1.jmx"
-      - "tests/performance/data/grupo05_*.csv"
-      - ".github/workflows/jmeter-grupo05-performance.yml"
   pull_request:
     branches: ["main"]
     paths:
