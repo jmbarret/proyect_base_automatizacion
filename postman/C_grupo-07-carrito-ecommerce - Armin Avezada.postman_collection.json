@@ -17,6 +17,7 @@
               "const statusCode = pm.response.code;\r",
               "const jsonData = pm.response.json();\r",
               "const errorMessage = jsonData.error;\r",
+              "pm.collectionVariables.set('id', jsonData.data.id);\r",
               "if(statusCode === 201){\r",
               "    pm.test(\"El código de respuesta es 201 Created\",() => {\r",
               "        pm.response.to.have.status(201);\r",
@@ -29,7 +30,7 @@
               "    \r",
               "        // Validamos que exista el array de items y su contenido\r",
               "        pm.expect(jsonData.data.items).to.be.an('array').that.is.not.empty;\r",
-              "        pm.expect(jsonData.data.items[0].producto).to.eql(\"Licencia Pro Anual\");\r",
+              "        pm.expect(jsonData.data.items[0].producto).to.eql(\"Soporte Premium\");\r",
               "    });\r",
               "}\r",
               "else if(statusCode === 400){\r",
@@ -45,6 +46,33 @@
               "        pm.expect(errorMessage.code).to.eql(\"UNAUTHORIZED\");\r",
               "    });\r",
               "}\r",
+              "\r",
+              "const sqlBody = {\r",
+              "  sql: \"SELECT id, activo FROM ordenes WHERE id = $1\",\r",
+              "  params: [pm.collectionVariables.get('id')]\r",
+              "};\r",
+              "\r",
+              "pm.sendRequest({\r",
+              "        url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r",
+              "        method: 'POST',\r",
+              "        header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('x-api-key') },\r",
+              "        body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r",
+              "        }, function (err, res) {\r",
+              "        if (err) { \r",
+              "            console.error('Error en pre-request (usuario):', err); \r",
+              "            return; \r",
+              "        }\r",
+              "        const body = res.json();\r",
+              "        if (!body.data || body.data.length === 0) {\r",
+              "            console.error('No se encontró producto en qa_training.ordenes');\r",
+              "             return;\r",
+              "        }\r",
+              "        const orden = body.data[0];\r",
+              "        pm.test(\"La BD confirma que la orden ha sido creada\", function () {\r",
+              "            pm.expect(String(orden.activo)).to.eql(\"true\");\r",
+              "         });\r",
+              "\r",
+              "});\r",
               ""
             ],
             "type": "text/javascript",
@@ -58,8 +86,8 @@
             "exec": [
               "//var id = pm.collectionVariables.get(\"eliminarId\");\r",
               "const sqlBody = {\r",
-              "  sql: \"select usuario_id, producto from qa_training.ordenes where usuario_id = $1 order by producto limit 1\",\r",
-              "  params: [23]\r",
+              "  sql: \"select * from qa_training.items_orden where id = $1\",\r",
+              "  params: [25]\r",
               "};\r",
               "\r",
               "pm.sendRequest({\r",
@@ -75,7 +103,7 @@
               "    return;\r",
               "  }\r",
               "  const orden = body.data[0];\r",
-              "  pm.collectionVariables.set('usuario_id', orden.usuario_id);\r",
+              "  pm.collectionVariables.set('ordenId', orden.id);\r",
               "  pm.collectionVariables.set('producto', orden.producto);\r",
               "  //console.log(body.data[0].producto);\r",
               "});"
@@ -111,7 +139,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "\r\n{\r\n  \"usuarioId\": \"{{usuario_id}}\",\r\n  \"items\": [\r\n    {\r\n      \"producto\": \"{{producto}}\",\r\n      \"cantidad\": 2,\r\n      \"precioUnitario\": 85\r\n    }\r\n  ]\r\n}",
+          "raw": "\r\n{\r\n  \"usuarioId\": \"{{ordenId}}\",\r\n  \"items\": [\r\n    {\r\n      \"producto\": \"{{producto}}\",\r\n      \"cantidad\": 2,\r\n      \"precioUnitario\": 85\r\n    }\r\n  ]\r\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -134,7 +162,7 @@
       "response": []
     },
     {
-      "name": "02 - Crear orden - Usuario incorrecto",
+      "name": "02 - Crear orden - No existe producto",
       "event": [
         {
           "listen": "test",
@@ -155,8 +183,8 @@
               "\r",
               "    // Validamos que el mensaje contenga información clave de la Foreign Key\r",
               "     pm.test(\"La respuesta captura el error de validación de base de datos\", () => {\r",
-              "        pm.expect(jsonData.error.message).to.include(\"violates foreign key constraint\");\r",
-              "        pm.expect(jsonData.error.message).to.include(\"ordenes_usuario_id_fkey\");\r",
+              "        pm.expect(jsonData.error.code).to.include(\"VALIDATION_ERROR\");\r",
+              "        \r",
               "    });\r",
               "\r",
               "}\r",
@@ -164,7 +192,32 @@
               "    pm.test(\"Code 401 - API key inválida, inactiva o ausente\", () =>{\r",
               "        pm.expect(errorMessage.code).to.eql(\"UNAUTHORIZED\");\r",
               "    });\r",
-              "}"
+              "}\r",
+              "\r",
+              "const sqlBody = {\r",
+              "  sql: \"select * from qa_training.ordenes where id = $1\", // Ajusta la query según tu tabla de órdenes\r",
+              "  params: [2000]\r",
+              "};\r",
+              "\r",
+              "// Validaciones de Base de Datos\r",
+              "pm.sendRequest({\r",
+              "    url: pm.variables.get('baseUrl') + '/api/v1/sql/select',\r",
+              "    method: 'POST',\r",
+              "    header: { 'Content-Type': 'application/json', 'x-api-key': pm.variables.get('x-api-key') },\r",
+              "    body: { mode: 'raw', raw: JSON.stringify(sqlBody) }\r",
+              "}, function (err, res) {\r",
+              "    if (err) { \r",
+              "        console.error('Error al consultar DB en tests:', err); \r",
+              "        return; \r",
+              "    }\r",
+              "    \r",
+              "    const body = res.json();\r",
+              "    \r",
+              "    // Como la creación debió fallar por falta de FK, esperamos que no se haya guardado nada\r",
+              "    pm.test(\"La BD confirma que la orden NO fue creada (Control de FK exitoso)\", function () {\r",
+              "        pm.expect(body.data.length).to.eql(0);\r",
+              "    });\r",
+              "});"
             ],
             "type": "text/javascript",
             "packages": {},
@@ -175,10 +228,14 @@
           "listen": "prerequest",
           "script": {
             "exec": [
-              "//var id = pm.collectionVariables.get(\"eliminarId\");\r",
+              "// 1. Limpiar variables de ejecuciones anteriores\r",
+              "pm.collectionVariables.unset('ordenId');\r",
+              "pm.collectionVariables.unset('producto');\r",
+              "pm.collectionVariables.unset('id');\r",
+              "\r",
               "const sqlBody = {\r",
-              "  sql: \"select usuario_id, producto from qa_training.ordenes where usuario_id = $1 order by producto limit 1\",\r",
-              "  params: [23]\r",
+              "  sql: \"select * from qa_training.items_orden where id = $1\",\r",
+              "  params: [2000]\r",
               "};\r",
               "\r",
               "pm.sendRequest({\r",
@@ -190,11 +247,11 @@
               "        if (err) { console.error('Error en pre-request (usuario):', err); return; }\r",
               "        const body = res.json();\r",
               "        if (!body.data || body.data.length === 0) {\r",
-              "    console.error('No se encontró producto en qa_training.ordenes');\r",
+              "           console.log('Validación exitosa en pre-request: El producto 2000 no existe en la BD.');\r",
               "    return;\r",
               "  }\r",
               "  const orden = body.data[0];\r",
-              "  pm.collectionVariables.set('usuario_id', orden.usuario_id + '78989');\r",
+              "  pm.collectionVariables.set('ordenId', orden.id);\r",
               "  pm.collectionVariables.set('producto', orden.producto);\r",
               "  //console.log(body.data[0].producto);\r",
               "});"
@@ -230,7 +287,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "\r\n{\r\n  \"usuarioId\": \"{{usuario_id}}\",\r\n  \"items\": [\r\n    {\r\n      \"producto\": \"{{producto}}\",\r\n      \"cantidad\": 2,\r\n      \"precioUnitario\": 85\r\n    }\r\n  ]\r\n}",
+          "raw": "\r\n{\r\n  \"usuarioId\": \"{{ordenId}}\",\r\n  \"items\": [\r\n    {\r\n      \"producto\": \"{{producto}}\",\r\n      \"cantidad\": 2,\r\n      \"precioUnitario\": 85\r\n    }\r\n  ]\r\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -279,9 +336,6 @@
   ],
   "variable": [
     {
-      "value": ""
-    },
-    {
       "key": "x-api-key",
       "value": ""
     },
@@ -290,11 +344,6 @@
       "value": ""
     },
     {
-      "key": "usuario_id",
-      "value": ""
-    },
-    {
-      "key": "producto",
       "value": ""
     }
   ]
