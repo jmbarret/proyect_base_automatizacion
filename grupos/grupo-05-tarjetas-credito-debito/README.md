@@ -114,6 +114,13 @@ simultáneas se roban el cupo entre sí y las dos terminan en 429. Tres defensas
    ninguna dio 429. Sondear una sola no alcanza, porque mientras otra corrida se mantenga
    bajo las 30/min la API responde 200 y el límite se pasa recién al sumarnos nosotros.
 
+Las dos defensas de arriba viven en
+[`scripts/esperar-cupo-api.sh`](scripts/esperar-cupo-api.sh) y en el grupo de concurrencia
+`aiquaa-sandbox-grupo05`, que comparten **los dos workflows del grupo** — el de JMeter y el
+de Newman —, porque el límite es por api-key y no por corrida. La colección Postman corre
+además con `--delay-request 2500`: sus 16 requests a 500 ms eran un pico de más de 100
+req/min.
+
 Ojo con un choque propio del repo: el plan del curso
 ([`jmeter-performance.yml`](../../.github/workflows/jmeter-performance.yml)) se dispara con
 `tests/performance/**`, que incluye los archivos de este grupo, y corre a 27 muestras/min

@@ -72,34 +72,9 @@ jobs:
           tar -xzf jmeter.tgz
 
       - name: Esperar a que haya cupo en el rate limit
-        # La key publica del sandbox la comparte toda la clase, con un limite de
-        # 30 req/min por key. El plan del curso (jmeter-performance.yml) se dispara
-        # con los mismos archivos que este workflow y corre a 27 muestras/min, asi
-        # que puede estar consumiendo casi todo el cupo mientras arrancamos.
-        #
-        # Sondear una sola request no alcanza: mientras el otro plan se mantenga
-        # bajo las 30/min la API responde 200 y recien al sumarnos nosotros se pasa
-        # el limite. Por eso se mide HOLGURA, no disponibilidad: una rafaga corta
-        # solo pasa limpia si de verdad sobra cupo en la ventana.
         run: |
-          for ronda in $(seq 1 12); do
-            limitado=0
-            for i in $(seq 1 5); do
-              code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-                --header "x-api-key: ${API_KEY}" \
-                "${API_BASE}/api/v1/tarjetas/2")
-              if [ "${code}" = "429" ]; then
-                limitado=1
-              fi
-            done
-            if [ "${limitado}" = "0" ]; then
-              echo "Hay cupo en la ventana (rafaga de 5 sin 429) tras ${ronda} ronda(s). Se arranca."
-              exit 0
-            fi
-            echo "Sin cupo: la rafaga dio 429, otra corrida esta usando la key. Reintento en 30 s (${ronda}/12)."
-            sleep 30
-          done
-          echo "::warning::Sigue sin haber cupo tras 6 min. Se corre igual; esperar 429 en el informe."
+          bash grupos/grupo-05-tarjetas-credito-debito/scripts/esperar-cupo-api.sh \
+            "${API_KEY}" "${API_BASE}"
 
       - name: Ejecutar plan de carga headless
         run: |
