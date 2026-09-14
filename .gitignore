@@ -15,6 +15,10 @@ results/
 # Resultados de Newman
 newman/
 
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+
 # Logs
 *.log
 npm-debug.log*

@@ -1,0 +1,962 @@
+{
+  "info": {
+    "_postman_id": "1b2cf7a0-b3e7-41b9-9847-c0b02848991d",
+    "name": "Grupo 04 - Onboarding KYC Básico",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "42134457"
+  },
+  "item": [
+    {
+      "name": "Validación con Base de Datos",
+      "item": [
+        {
+          "name": "01 - Obtener CI existente desde BD",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();\r",
+                  "\r",
+                  "const documento = response.data[0].documento_numero;\r",
+                  "\r",
+                  "pm.collectionVariables.set(\"documentoExistente\", documento);\r",
+                  "\r",
+                  "pm.test(\"Se obtuvo un usuario desde la base de datos\", function () {\r",
+                  "    pm.expect(response.rowCount).to.be.above(0);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"sql\": \"SELECT * FROM usuarios LIMIT 1;\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 - Validar documento duplicado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Documento duplicado devuelve 409\", function () {\r",
+                  "    pm.response.to.have.status(409);\r",
+                  "    pm.test(\"El error es CONFLICT\", function () {\r",
+                  "    const response = pm.response.json();\r",
+                  "    pm.expect(response.error.code).to.eql(\"CONFLICT\");\r",
+                  "});\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"nombre\": \"Usuario Prueba\",\r\n  \"email\": \"usuario.prueba{{$timestamp}}@example.com\",\r\n  \"documentoTipo\": \"CI\",\r\n  \"documentoNumero\": \"{{documentoExistente}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Alta válida con validación BD",
+      "item": [
+        {
+          "name": "01 - Crear usuario nuevo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Date.now();\r",
+                  "\r",
+                  "pm.collectionVariables.set(\r",
+                  "    \"emailNuevo\",\r",
+                  "    `usuario${timestamp}@example.com`\r",
+                  ");\r",
+                  "\r",
+                  "pm.collectionVariables.set(\r",
+                  "    \"documentoNuevo\",\r",
+                  "    `${timestamp}`\r",
+                  ");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();\r",
+                  "\r",
+                  "pm.test(\"Usuario creado correctamente\", function () {\r",
+                  "    pm.response.to.have.status(201);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"KYC inicia pendiente\", function () {\r",
+                  "    pm.expect(response.data.kyc_estado).to.eql(\"pendiente\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Usuario queda activo\", function () {\r",
+                  "    pm.expect(response.data.activo).to.eql(true);\r",
+                  "});\r",
+                  "\r",
+                  "pm.collectionVariables.set(\r",
+                  "    \"usuarioCreadoId\",\r",
+                  "    response.data.id\r",
+                  ");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"nombre\": \"Usuario Automatizado\",\r\n  \"email\": \"{{emailNuevo}}\",\r\n  \"documentoTipo\": \"CI\",\r\n  \"documentoNumero\": \"{{documentoNuevo}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "usuarios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 - Validar usuario en BD",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();\r",
+                  "\r",
+                  "pm.test(\"El usuario existe en la BD\", function () {\r",
+                  "    pm.expect(response.rowCount).to.eql(1);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El documento se guardó correctamente\", function () {\r",
+                  "    pm.expect(response.data[0].documento_numero)\r",
+                  "        .to.eql(pm.collectionVariables.get(\"documentoNuevo\"));\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El KYC quedó pendiente\", function () {\r",
+                  "    pm.expect(response.data[0].kyc_estado)\r",
+                  "        .to.eql(\"pendiente\");\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"El usuario quedó activo\", function () {\r",
+                  "    pm.expect(response.data[0].activo)\r",
+                  "        .to.eql(true);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"sql\": \"SELECT * FROM usuarios WHERE documento_numero = '{{documentoNuevo}}';\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sql/select",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sql",
+                "select"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Crear usuario - Happy Path",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"El usuario se crea correctamente con status 201\", function () {\r",
+              "    pm.response.to.have.status(201);\r",
+              "});\r",
+              "\r",
+              "const response = pm.response.json();\r",
+              "\r",
+              "pm.test(\"La respuesta contiene el ID del nuevo usuario\", function () {\r",
+              "    pm.expect(response.data).to.exist;\r",
+              "    pm.expect(response.data.id).to.exist;\r",
+              "});\r",
+              "\r",
+              "if (response.data && response.data.id) {\r",
+              "    pm.environment.set(\"usuarioId\", response.data.id);\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const timestamp = Date.now();\r",
+              "\r",
+              "pm.environment.set(\r",
+              "    \"happyEmail\",\r",
+              "    `usuario.happy.${timestamp}@example.com`\r",
+              ");\r",
+              "\r",
+              "pm.environment.set(\r",
+              "    \"happyDocumento\",\r",
+              "    `${timestamp}`\r",
+              ");"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Usuario QA\",\n  \"email\": \"{{happyEmail}}\",\n  \"documentoTipo\": \"CI\",\n  \"documentoNumero\": \"{{happyDocumento}}\",\n  \"fechaNacimiento\": \"1995-06-12\",\n  \"direccion\": \"Asunción, Paraguay\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Consulta exitosa del listado de usuarios registrados",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code es 200', function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test('La respuesta contiene el listado de usuarios', function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data).to.be.an('array');\r",
+              "});\r",
+              "\r",
+              "pm.test('Response time is less than 3000ms', function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Consulta exitosa de usuarios con estado KYC pendiente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code es 200', function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test('La respuesta contiene usuarios con KYC pendiente', function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.data).to.be.an('array');\r",
+              "});\r",
+              "\r",
+              "pm.test('Response time is less than 3000ms', function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sql\": \"SELECT id, nombre, documento_tipo, documento_numero, kyc_estado FROM usuarios WHERE kyc_estado = $1\",\n  \"params\": [\n    \"pendiente\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/sql/select",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "sql",
+            "select"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Registro con cédula inválida - Negativo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"El registro es rechazado con status 400\", function () {\r",
+              "    pm.response.to.have.status(400);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"La respuesta contiene un error de validación\", function () {\r",
+              "    const response = pm.response.json();\r",
+              "    pm.expect(response.error).to.exist;\r",
+              "    pm.expect(response.error.code).to.eql(\"VALIDATION_ERROR\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Usuario Negativo\",\n  \"email\": \"usuario.negativo.290826@example.com\",\n  \"documentoTipo\": \"CI\",\n  \"documentoNumero\": \"\",\n  \"fechaNacimiento\": \"1995-06-12\",\n  \"direccion\": \"Asunción, Paraguay\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Registro rechazado por correo ya registrado",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code es 409', function () {\r",
+              "    pm.response.to.have.status(409);\r",
+              "});\r",
+              "\r",
+              "pm.test('La respuesta contiene un conflicto', function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error.code).to.eql('CONFLICT');\r",
+              "});\r",
+              "\r",
+              "pm.test('Response time is less than 3000ms', function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"nombre\": \"Usuario Correo Duplicado\",\r\n  \"email\": \"grupo04.test01@example.com\",\r\n  \"documentoTipo\": \"CI\",\r\n  \"documentoNumero\": \"5678902\",\r\n  \"fechaNacimiento\": \"1995-06-12\",\r\n  \"direccion\": \"Asuncion, Paraguay\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Registro rechazado por campos obligatorios incompletos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code es 400', function () {\r",
+              "    pm.response.to.have.status(400);\r",
+              "});\r",
+              "\r",
+              "pm.test('La respuesta contiene error de validacion', function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error.code).to.eql('VALIDATION_ERROR');\r",
+              "});\r",
+              "\r",
+              "pm.test('Response time is less than 3000ms', function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"grupo04.campos@example.com\",\r\n  \"documentoTipo\": \"CI\",\r\n  \"documentoNumero\": \"5678903\",\r\n  \"fechaNacimiento\": \"1995-06-12\",\r\n  \"direccion\": \"Asuncion, Paraguay\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "01 - Registro rechazado por correo invalido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code es 400', function () {\r",
+              "    pm.response.to.have.status(400);\r",
+              "});\r",
+              "\r",
+              "pm.test('La respuesta contiene un error', function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData).to.have.property('error');\r",
+              "});\r",
+              "\r",
+              "pm.test('Response time is less than 3000ms', function () {\r",
+              "    pm.expect(pm.response.responseTime).to.be.below(3000);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"nombre\": \"Usuario Grupo 04\",\r\n  \"email\": \"correo-invalido\",\r\n  \"documentoTipo\": \"CI\",\r\n  \"documentoNumero\": \"4567892\",\r\n  \"fechaNacimiento\": \"1995-06-12\",\r\n  \"direccion\": \"Asuncion, Paraguay\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Registro con cédula duplicada - Edge Case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"El registro duplicado es rechazado con status 409\", function () {\r",
+              "    pm.response.to.have.status(409);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"La respuesta informa un conflicto por dato duplicado\", function () {\r",
+              "    const response = pm.response.json();\r",
+              "\r",
+              "    pm.expect(response.error).to.exist;\r",
+              "    pm.expect(response.error.code).to.eql(\"CONFLICT\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Usuario Duplicado\",\n  \"email\": \"usuario.duplicado.290826@example.com\",\n  \"documentoTipo\": \"CI\",\n  \"documentoNumero\": \"7834291\",\n  \"fechaNacimiento\": \"1995-06-12\",\n  \"direccion\": \"Asunción, Paraguay\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Obtener usuario por id - Validación",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"El usuario se obtiene correctamente con status 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "const response = pm.response.json();\r",
+              "\r",
+              "pm.test(\"El usuario obtenido corresponde al usuario creado\", function () {\r",
+              "    pm.expect(response.data.id.toString())\r",
+              "        .to.eql(pm.environment.get(\"usuarioId\").toString());\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Actualizar estado KYC - Validación",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"kycEstado\": \"verificado\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/usuarios/1/kyc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "usuarios",
+            "1",
+            "kyc"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Usuarios con KYC pendiente - Onboarding",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"La consulta responde con status 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "const response = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Existen usuarios con KYC pendiente\", function () {\r",
+              "    pm.expect(response.data).to.be.an(\"array\");\r",
+              "    pm.expect(response.data.length).to.be.above(0);\r",
+              "});\r",
+              "\r",
+              "if (response.data.length > 0) {\r",
+              "    pm.environment.set(\"usuarioId\", response.data[0].id);\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sql\": \"SELECT id, nombre, documento_tipo, documento_numero, kyc_estado FROM usuarios WHERE kyc_estado = $1\",\n  \"params\": [\n    \"pendiente\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/sql/select",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "sql",
+            "select"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "documentoExistente",
+      "value": ""
+    },
+    {
+      "key": "emailNuevo",
+      "value": ""
+    },
+    {
+      "key": "documentoNuevo",
+      "value": ""
+    },
+    {
+      "key": "usuarioCreadoId",
+      "value": ""
+    }
+  ]
+}

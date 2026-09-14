@@ -1,0 +1,97 @@
+name: JMeter Grupo 04 - Onboarding
+
+on:
+  workflow_dispatch:
+    inputs:
+      threads:
+        description: "Usuarios concurrentes"
+        required: false
+        default: "1"
+      loops:
+        description: "Iteraciones por usuario"
+        required: false
+        default: "3"
+  push:
+    branches: ["grupo-04-registro-onboarding"]
+    paths:
+      - "tests/performance/**"
+      - ".github/workflows/jmeter-grupo04-performance.yml"
+
+permissions:
+  contents: read
+
+env:
+  JMETER_VERSION: 5.6.3
+  RESULTS_DIR: test-results/performance/grupo04
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalar JMeter
+        run: |
+          curl --fail --location --silent --show-error \
+            "https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz" \
+            --output jmeter.tgz
+          tar -xzf jmeter.tgz
+
+      - name: Ejecutar plan de carga
+        env:
+          API_KEY: ${{ secrets.GRUPO04_API_KEY }}
+        run: |
+          mkdir -p "${RESULTS_DIR}/dashboard"
+          "apache-jmeter-${JMETER_VERSION}/bin/jmeter" -n \
+            -t tests/performance/plans/Grupo04_Onboarding.jmx \
+            -l "${RESULTS_DIR}/grupo04-resultados.jtl" \
+            -e -o "${RESULTS_DIR}/dashboard" \
+            -JcsvPath=tests/performance/data/grupo04-usuarios.csv \
+            -JapiKey="${API_KEY}" \
+            -Jthreads="${{ inputs.threads || '1' }}" \
+            -Jloops="${{ inputs.loops || '3' }}" \
+            -JdelayMs=2500
+
+      - name: Generar informe PDF
+        if: always()
+        run: |
+          npx -y aiquaa-performance-mcp-server --report \
+            "${RESULTS_DIR}/grupo04-resultados.jtl" \
+            tests/performance/thresholds/grupo04-thresholds.json \
+            "${RESULTS_DIR}/INFORME_JMETER_GRUPO04.pdf" \
+            --api-name "AIQUAA Sandbox - Onboarding" \
+            --plan tests/performance/plans/Grupo04_Onboarding.jmx \
+            --test-type carga \
+            --threads "${{ inputs.threads || '1' }}" \
+            --loops "${{ inputs.loops || '3' }}" \
+            --author "${{ github.triggering_actor }}" \
+            --api-version "${{ github.sha }}" \
+            --repo-url "${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Evaluar umbrales
+        run: |
+          npx -y aiquaa-performance-mcp-server --evaluate \
+            "${RESULTS_DIR}/grupo04-resultados.jtl" \
+            tests/performance/thresholds/grupo04-thresholds.json
+
+      - name: Publicar resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-grupo04-onboarding
+          path: test-results/performance/grupo04/
+          retention-days: 7
