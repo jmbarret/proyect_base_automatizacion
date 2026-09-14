@@ -75,7 +75,7 @@ Evidencia de la corrida (Newman): [`evidence/semana-03/newman-sql-e2e.txt`](evid
 
 ## Pruebas de rendimiento (JMeter)
 
-Plan del grupo: [`tests/performance/plans/Grupo05_Tarjetas_v1.jmx`](../../tests/performance/plans/Grupo05_Tarjetas_v1.jmx),
+Plan del grupo: [`tests/performance/plans/Grupo05_Tarjetas_v1.jmx`](tests/performance/plans/Grupo05_Tarjetas_v1.jmx),
 ejecutado en CI por [`jmeter-grupo05-performance.yml`](../../.github/workflows/jmeter-grupo05-performance.yml).
 
 | Ruta | Qué es |
@@ -121,11 +121,12 @@ de Newman —, porque el límite es por api-key y no por corrida. La colección 
 además con `--delay-request 2500`: sus 16 requests a 500 ms eran un pico de más de 100
 req/min.
 
-Ojo con un choque propio del repo: el plan del curso
-([`jmeter-performance.yml`](../../.github/workflows/jmeter-performance.yml)) se dispara con
-`tests/performance/**`, que incluye los archivos de este grupo, y corre a 27 muestras/min
-sobre la misma key. Por eso el paso de espera es imprescindible: sin él, ambos planes se
-pisan en cada sincronización del PR.
+Los archivos de performance viven **dentro de la carpeta del grupo**, no en
+`tests/performance/` de la raíz, igual que los del grupo 07. No es cosmético: el plan del
+curso ([`jmeter-performance.yml`](../../.github/workflows/jmeter-performance.yml)) se
+dispara con el filtro `tests/performance/**` y corre a 27 muestras/min sobre la misma key,
+así que teniéndolos en la raíz arrancaba en paralelo con el nuestro en cada sincronización
+del PR y los dos se pisaban. Desde su propia carpeta, ese workflow ya no los alcanza.
 
 En local, conviene esperar un minuto entre corridas por el mismo motivo.
 
@@ -134,7 +135,7 @@ En local, conviene esperar un minuto entre corridas por el mismo motivo.
 ### Correr en local
 
 ```bash
-jmeter -n -t tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+jmeter -n -t grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
   -l test-results/performance/grupo05/R_GRUPO05_TARJETAS.jtl \
   -e -o test-results/performance/grupo05/dashboard \
   -JapiKey=<api-key> \
@@ -150,10 +151,10 @@ Informe PDF a partir del `.jtl`, con el MCP del curso:
 ```bash
 npx -y aiquaa-performance-mcp-server --report \
   test-results/performance/grupo05/R_GRUPO05_TARJETAS.jtl \
-  tests/performance/thresholds/thresholds.json \
+  grupos/grupo-05-tarjetas-credito-debito/tests/performance/thresholds/thresholds.json \
   test-results/performance/grupo05/INFORME_PERF_GRUPO05.pdf \
   --api-name "AIQUAA Sandbox API (tarjetas credito/debito)" \
-  --plan tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+  --plan grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
   --test-type carga
 ```
 

@@ -9,8 +9,8 @@ on:
   pull_request:
     branches: ["main"]
     paths:
-      - "tests/performance/plans/Grupo05_Tarjetas_v1.jmx"
-      - "tests/performance/data/grupo05_*.csv"
+      - "grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx"
+      - "grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_*.csv"
       - ".github/workflows/jmeter-grupo05-performance.yml"
   workflow_dispatch:
     inputs:
@@ -79,12 +79,12 @@ jobs:
         run: |
           mkdir -p "${RESULTS_DIR}/dashboard"
           "apache-jmeter-${JMETER_VERSION}/bin/jmeter" -n \
-            -t tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+            -t grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
             -l "${RESULTS_DIR}/R_GRUPO05_TARJETAS.jtl" \
             -e -o "${RESULTS_DIR}/dashboard" \
             -JapiKey="${API_KEY}" \
-            -JconsultaCsvPath=tests/performance/data/grupo05_consulta_tarjetas.csv \
-            -JemisionCsvPath=tests/performance/data/grupo05_emision_tarjetas.csv \
+            -JconsultaCsvPath=grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_consulta_tarjetas.csv \
+            -JemisionCsvPath=grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_emision_tarjetas.csv \
             -Jthreads="${{ inputs.threads || '2' }}" \
             -Jloops="${{ inputs.loops || '5' }}"
 
@@ -96,10 +96,10 @@ jobs:
           set +e
           npx -y aiquaa-performance-mcp-server --report \
             "${RESULTS_DIR}/R_GRUPO05_TARJETAS.jtl" \
-            tests/performance/thresholds/thresholds.json \
+            grupos/grupo-05-tarjetas-credito-debito/tests/performance/thresholds/thresholds.json \
             "${RESULTS_DIR}/INFORME_PERF_GRUPO05.pdf" \
             --api-name "AIQUAA Sandbox API (tarjetas credito/debito)" \
-            --plan tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
+            --plan grupos/grupo-05-tarjetas-credito-debito/tests/performance/plans/Grupo05_Tarjetas_v1.jmx \
             --test-type carga \
             --threads "${{ inputs.threads || '2' }}" \
             --loops "${{ inputs.loops || '5' }}" \
@@ -118,7 +118,7 @@ jobs:
         run: |
           npx -y aiquaa-performance-mcp-server --evaluate \
             "${RESULTS_DIR}/R_GRUPO05_TARJETAS.jtl" \
-            tests/performance/thresholds/thresholds.json
+            grupos/grupo-05-tarjetas-credito-debito/tests/performance/thresholds/thresholds.json
 
       - name: Subir resultados e informe
         uses: actions/upload-artifact@v7

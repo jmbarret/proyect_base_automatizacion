@@ -62,7 +62,7 @@
             <stringProp name="TestPlan.comments">Mezcla ids del seed (respuesta 200) con un id invalido (0 -&gt; 400) y uno inexistente (9999 -&gt; 404), para ejercitar tambien las rutas de error bajo carga. Cada fila trae el codigo que se espera, asi la asercion vale para las tres.</stringProp>
             <stringProp name="delimiter">,</stringProp>
             <stringProp name="fileEncoding">UTF-8</stringProp>
-            <stringProp name="filename">${__P(consultaCsvPath,tests/performance/data/grupo05_consulta_tarjetas.csv)}</stringProp>
+            <stringProp name="filename">${__P(consultaCsvPath,grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_consulta_tarjetas.csv)}</stringProp>
             <boolProp name="ignoreFirstLine">true</boolProp>
             <boolProp name="quotedData">false</boolProp>
             <boolProp name="recycle">true</boolProp>
@@ -101,7 +101,7 @@
             <stringProp name="TestPlan.comments">Filas validas para la carga normal (201) y filas de borde (usuarioId 0 e inexistente, tipo y marca fuera del enum) que la API rechaza con 400. El codigo esperado viaja en el CSV.</stringProp>
             <stringProp name="delimiter">,</stringProp>
             <stringProp name="fileEncoding">UTF-8</stringProp>
-            <stringProp name="filename">${__P(emisionCsvPath,tests/performance/data/grupo05_emision_tarjetas.csv)}</stringProp>
+            <stringProp name="filename">${__P(emisionCsvPath,grupos/grupo-05-tarjetas-credito-debito/tests/performance/data/grupo05_emision_tarjetas.csv)}</stringProp>
             <boolProp name="ignoreFirstLine">true</boolProp>
             <boolProp name="quotedData">false</boolProp>
             <boolProp name="recycle">true</boolProp>
